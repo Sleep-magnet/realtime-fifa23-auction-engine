@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sold Players</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<h1 class="title">Sold Players</h1>
+
+<a href="{{ url_for('players.players_page') }}" class="nav-btn">
+    ← Back to Available Players
+</a>
+<a href="{{ url_for('players.reset_all_sold') }}" class="nav-btn">
+    Reset All Sold Players
+</a>
+<div class="container">
+{% for p in players %}
+      
+
+<div class="card silver sold-card">
+
+    <div class="badge">{{ p.rating }}</div>
+
+    <img src="https://ui-avatars.com/api/?name={{ p.name }}&background=888888&color=ffffff&size=200"
+         class="player-img">
+
+    <h2>{{ p.name }}</h2>
+    <p>{{ p.position }}</p>
+    <p>{{ p.nation }}</p>
+
+    <p class="sold-label">
+        Sold To: {{ p.sold_to }}
+    </p>
+
+    <a href="{{ url_for('players.unsell_player', player_id=p.id) }}"
+       class="sell-btn">Undo Sale</a>
+ 
+
+</div>
+
+{% endfor %}
+</div>
+
+</body>
+</html>

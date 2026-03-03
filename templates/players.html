@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FC23 Auction Players</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<h1 class="title">FC23 Auction Players</h1>
+
+<p class="count">
+    Total Available Players: {{ players|length }}
+</p>
+
+<a href="{{ url_for('players.sold_players') }}" class="nav-btn">
+    View Sold Players ({{ sold_count }})
+</a>
+
+<form method="get" class="filter-form">
+
+    <select name="position">
+        <option value="All">All Positions</option>
+        <option value="ST" {% if selected_position == "ST" %}selected{% endif %}>ST</option>
+        <option value="CF" {% if selected_position == "CF" %}selected{% endif %}>CF</option>
+        <option value="CAM" {% if selected_position == "CAM" %}selected{% endif %}>CAM</option>
+        <option value="CM" {% if selected_position == "CM" %}selected{% endif %}>CM</option>
+        <option value="CB" {% if selected_position == "CB" %}selected{% endif %}>CB</option>
+        <option value="GK" {% if selected_position == "GK" %}selected{% endif %}>GK</option>
+    </select>
+
+    <select name="rating">
+        <option value="">Min Rating</option>
+        <option value="85" {% if selected_rating == "85" %}selected{% endif %}>85+</option>
+        <option value="88" {% if selected_rating == "88" %}selected{% endif %}>88+</option>
+        <option value="90" {% if selected_rating == "90" %}selected{% endif %}>90+</option>
+    </select>
+
+    <button type="submit">Apply</button>
+</form>
+
+<div class="container">
+{% for p in players %}
+
+{% set tier = "bronze" %}
+{% if p.rating >= 90 %}
+    {% set tier = "elite" %}
+{% elif p.rating >= 85 %}
+    {% set tier = "gold" %}
+{% elif p.rating >= 79 %}
+    {% set tier = "silver" %}
+{% endif %}
+
+<div class="card {{ tier }}">
+
+    <div class="badge">{{ p.rating }}</div>
+
+    <img src="https://ui-avatars.com/api/?name={{ p.name }}&background=FFD700&color=000&size=200"
+         class="player-img">
+
+    <h2>{{ p.name }}</h2>
+    <p><strong>{{ p.position }}</strong></p>
+    <p>{{ p.nation }}</p>
+
+    <a href="{{ url_for('players.sell_player', player_id=p.id) }}"
+       class="sell-btn">Mark Sold</a>
+
+</div>
+{% endfor %}
+</div>
+
+</body>
+</html>

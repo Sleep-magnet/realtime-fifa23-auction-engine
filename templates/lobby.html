@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>USC — Lobby</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Outfit:wght@200;300;400;500;600&family=JetBrains+Mono:wght@300;700;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;}
+body{font-family:'Outfit',sans-serif;background:#04050A;color:white;cursor:none;display:flex;align-items:center;justify-content:center;}
+
+#cur{position:fixed;width:6px;height:6px;border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);}
+#cur-ring{position:fixed;width:28px;height:28px;border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:width .3s,height .3s,border-color .3s,border-radius .3s;}
+
+/* STADIUM BG */
+.stadium{position:fixed;inset:0;z-index:0;background:url('https://images.unsplash.com/photo-1518605368461-1e12d1b81622?q=80&w=2070&auto=format&fit=crop') center/cover;filter:blur(18px) brightness(0.07) saturate(0.4);transform:scale(1.12);}
+.vignette{position:fixed;inset:0;z-index:1;background:radial-gradient(ellipse 70% 70% at 50% 50%,rgba(4,5,10,0.3) 0%,rgba(4,5,10,0.97) 75%);}
+.grain{position:fixed;inset:-60%;width:220%;height:220%;z-index:2;pointer-events:none;opacity:.04;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");animation:gs .6s steps(1) infinite;}
+@keyframes gs{0%{transform:translate(0,0)}33%{transform:translate(-2%,-3%)}66%{transform:translate(3%,1%)}100%{transform:translate(-1%,2%)}}
+
+/* CARD */
+.card{position:relative;z-index:10;width:100%;max-width:400px;margin:20px;padding:52px 48px;border-radius:5px;text-align:center;backdrop-filter:blur(56px);animation:ci .9s cubic-bezier(.16,1,.3,1) both;}
+@keyframes ci{from{opacity:0;transform:translateY(40px) scale(.97);}to{opacity:1;transform:none;}}
+
+.card-gold{background:linear-gradient(155deg,rgba(20,16,6,.98),rgba(10,8,3,.99));border:1px solid rgba(191,160,70,.18);box-shadow:0 60px 120px rgba(0,0,0,.9),inset 0 1px 0 rgba(191,160,70,.1);}
+.card-cyan{background:linear-gradient(155deg,rgba(5,8,18,.98),rgba(3,5,14,.99));border:1px solid rgba(0,196,232,.16);box-shadow:0 60px 120px rgba(0,0,0,.9),inset 0 1px 0 rgba(0,196,232,.08);}
+
+/* Top border accent */
+.card-gold::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(191,160,70,.7) 30%,rgba(232,201,106,1) 50%,rgba(191,160,70,.7) 70%,transparent);animation:sl 3.5s ease-in-out infinite;}
+.card-cyan::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,196,232,.65) 30%,rgba(96,222,255,1) 50%,rgba(0,196,232,.65) 70%,transparent);animation:sl 3.5s ease-in-out infinite;}
+@keyframes sl{0%,100%{opacity:.35;}50%{opacity:1;}}
+
+/* CORNER MARKS */
+.cm{position:absolute;width:12px;height:12px;}
+.cm-tl{top:12px;left:12px;}
+.cm-tr{top:12px;right:12px;}
+.cm-bl{bottom:12px;left:12px;}
+.cm-br{bottom:12px;right:12px;}
+.gold .cm-tl{border-top:1px solid rgba(191,160,70,.5);border-left:1px solid rgba(191,160,70,.5);}
+.gold .cm-tr{border-top:1px solid rgba(191,160,70,.5);border-right:1px solid rgba(191,160,70,.5);}
+.gold .cm-bl{border-bottom:1px solid rgba(191,160,70,.5);border-left:1px solid rgba(191,160,70,.5);}
+.gold .cm-br{border-bottom:1px solid rgba(191,160,70,.5);border-right:1px solid rgba(191,160,70,.5);}
+.cyan-c .cm-tl{border-top:1px solid rgba(0,196,232,.45);border-left:1px solid rgba(0,196,232,.45);}
+.cyan-c .cm-tr{border-top:1px solid rgba(0,196,232,.45);border-right:1px solid rgba(0,196,232,.45);}
+.cyan-c .cm-bl{border-bottom:1px solid rgba(0,196,232,.45);border-left:1px solid rgba(0,196,232,.45);}
+.cyan-c .cm-br{border-bottom:1px solid rgba(0,196,232,.45);border-right:1px solid rgba(0,196,232,.45);}
+
+/* ICON */
+.icon{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 24px;}
+.icon-gold{background:rgba(191,160,70,.08);border:1px solid rgba(191,160,70,.2);}
+.icon-cyan{background:rgba(0,196,232,.06);border:1px solid rgba(0,196,232,.16);}
+
+/* BADGE */
+.badge{display:inline-flex;align-items:center;gap:7px;padding:5px 14px;border-radius:999px;font-size:9px;font-weight:500;letter-spacing:.3em;text-transform:uppercase;margin-bottom:22px;}
+.badge-gold{background:rgba(191,160,70,.07);border:1px solid rgba(191,160,70,.18);color:rgba(191,160,70,.7);}
+.badge-cyan{background:rgba(0,196,232,.05);border:1px solid rgba(0,196,232,.16);color:rgba(0,196,232,.65);}
+
+/* TITLE */
+.title{font-family:'Playfair Display',serif;font-size:44px;font-weight:900;font-style:italic;line-height:.95;color:rgba(255,255,255,.92);margin-bottom:8px;letter-spacing:-.01em;}
+.subtitle{font-size:11px;font-weight:300;color:rgba(255,255,255,.22);margin-bottom:34px;letter-spacing:.04em;}
+
+/* DIVIDER */
+.div{height:1px;margin:28px 0;}
+.div-gold{background:linear-gradient(90deg,transparent,rgba(191,160,70,.28),transparent);}
+.div-cyan{background:linear-gradient(90deg,transparent,rgba(0,196,232,.22),transparent);}
+
+/* PIN INPUT */
+.pin{width:100%;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.07);color:white;padding:22px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-weight:900;font-size:34px;letter-spacing:.6em;text-align:center;outline:none;transition:all .4s;margin-bottom:14px;-webkit-appearance:none;}
+.pin-gold{color:#E8C96A;}
+.pin-gold:focus{border-color:rgba(191,160,70,.55);background:rgba(191,160,70,.025);box-shadow:0 0 0 3px rgba(191,160,70,.08);}
+.pin-cyan:focus{border-color:rgba(0,196,232,.5);background:rgba(0,196,232,.02);box-shadow:0 0 0 3px rgba(0,196,232,.07);}
+
+/* BUTTONS */
+.btn{width:100%;padding:16px 24px;font-family:'Outfit',sans-serif;font-size:10px;font-weight:600;letter-spacing:.35em;text-transform:uppercase;border:none;border-radius:3px;cursor:none;transition:all .4s;position:relative;overflow:hidden;}
+.btn::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent);transform:translateX(-100%);transition:transform .7s cubic-bezier(.23,1,.32,1);}
+.btn:hover::after{transform:translateX(100%);}
+.btn:active{transform:translateY(1px) !important;}
+
+.btn-gold{background:linear-gradient(110deg,#7A6020 0%,#BFA046 35%,#E8C96A 55%,#BFA046 75%,#7A6020 100%);background-size:300% 100%;color:#04050A;}
+.btn-gold:hover{background-position:100% 0;box-shadow:0 8px 40px rgba(191,160,70,.38);transform:translateY(-1px);}
+
+.btn-cyan{background:linear-gradient(110deg,#005A6E 0%,#00A8C8 35%,#60DEFF 55%,#00A8C8 75%,#005A6E 100%);background-size:300% 100%;color:#04060E;}
+.btn-cyan:hover{background-position:100% 0;box-shadow:0 8px 40px rgba(0,196,232,.35);transform:translateY(-1px);}
+
+/* ERROR */
+.err{border-left:2px solid rgba(255,60,90,.6);background:rgba(255,30,60,.04);padding:10px 14px;border-radius:0 3px 3px 0;font-size:12px;color:rgba(255,130,150,.8);margin-bottom:16px;text-align:left;letter-spacing:.02em;}
+</style>
+</head>
+<body>
+
+<div id="cur"></div>
+<div id="cur-ring"></div>
+<div class="stadium"></div>
+<div class="vignette"></div>
+<div class="grain"></div>
+
+{% if is_admin %}
+<div class="card card-gold gold">
+  <div class="cm cm-tl"></div><div class="cm cm-tr"></div>
+  <div class="cm cm-bl"></div><div class="cm cm-br"></div>
+  <div class="icon icon-gold">&#x1F451;</div>
+  <div class="badge badge-gold">Admin &mdash; Set Room PIN</div>
+  <h1 class="title">Open<br>Lobby</h1>
+  <p class="subtitle">Share this PIN with your managers</p>
+  <div class="div div-gold"></div>
+  <form method="POST">
+    <input type="text" name="new_room_pin" value="{{ current_pin }}" class="pin pin-gold" required autofocus>
+    <button type="submit" class="btn btn-gold">Open Lobby</button>
+  </form>
+</div>
+
+{% else %}
+<div class="card card-cyan cyan-c">
+  <div class="cm cm-tl"></div><div class="cm cm-tr"></div>
+  <div class="cm cm-bl"></div><div class="cm cm-br"></div>
+  <div class="icon icon-cyan">&#x1F512;</div>
+  <div class="badge badge-cyan">Secure Entry</div>
+  <h1 class="title">Enter<br>PIN</h1>
+  <p class="subtitle">Ask the admin for the current PIN</p>
+  <div class="div div-cyan"></div>
+  {% if error %}<div class="err">{{ error }}</div>{% endif %}
+  <form method="POST">
+    <input type="password" name="room_pin" placeholder="&middot;&middot;&middot;&middot;" class="pin pin-cyan" required autofocus>
+    <button type="submit" class="btn btn-cyan">Enter Room</button>
+  </form>
+</div>
+{% endif %}
+
+<script>
+const cur=document.getElementById('cur'),ring=document.getElementById('cur-ring');
+const isGold={{ 'true' if is_admin else 'false' }};
+cur.style.background=isGold?'#BFA046':'#00C4E8';
+ring.style.borderColor=isGold?'rgba(191,160,70,.4)':'rgba(0,196,232,.4)';
+let mx=window.innerWidth/2,my=window.innerHeight/2,rx=mx,ry=my;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;cur.style.left=mx+'px';cur.style.top=my+'px';});
+(function ra(){rx+=(mx-rx)*.1;ry+=(my-ry)*.1;ring.style.left=rx+'px';ring.style.top=ry+'px';requestAnimationFrame(ra);})();
+document.querySelectorAll('button,.pin').forEach(el=>{
+  const hC=isGold?'rgba(191,160,70,.8)':'rgba(0,196,232,.75)';
+  el.addEventListener('mouseenter',()=>{ring.style.width='42px';ring.style.height='42px';ring.style.borderColor=hC;ring.style.marginLeft='-7px';ring.style.marginTop='-7px';});
+  el.addEventListener('mouseleave',()=>{ring.style.width='28px';ring.style.height='28px';ring.style.borderColor=isGold?'rgba(191,160,70,.4)':'rgba(0,196,232,.4)';ring.style.marginLeft='0';ring.style.marginTop='0';});
+});
+</script>
+</body>
+</html>

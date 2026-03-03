@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>USC — Admin</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Outfit:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--ink:#04050A;--gold:#BFA046;--gold2:#E8C96A;--cyan:#00C4E8;--green:#00E8A0;--red:#FF4060;--surface:rgba(8,9,16,0.92);--border:rgba(255,255,255,0.055);--cream:rgba(255,255,255,0.88);}
+body{font-family:'Outfit',sans-serif;background:var(--ink);color:white;min-height:100vh;cursor:none;}
+
+#cur{position:fixed;width:6px;height:6px;border-radius:50%;background:var(--gold);pointer-events:none;z-index:9999;transform:translate(-50%,-50%);}
+#cur-ring{position:fixed;width:28px;height:28px;border-radius:50%;border:1px solid rgba(191,160,70,.38);pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:width .3s,height .3s,border-color .3s;}
+
+.bg{position:fixed;inset:0;z-index:0;background:radial-gradient(ellipse 70% 50% at 15% 30%,rgba(18,12,4,.9),transparent),#04050A;}
+.grain{position:fixed;inset:-60%;width:220%;height:220%;z-index:1;pointer-events:none;opacity:.03;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");animation:gs .6s steps(1) infinite;}
+@keyframes gs{0%{transform:translate(0,0)}33%{transform:translate(-2%,-2%)}66%{transform:translate(2%,1%)}100%{transform:translate(-1%,2%)}}
+
+nav{position:sticky;top:0;z-index:50;background:rgba(4,5,10,.94);border-bottom:1px solid var(--border);backdrop-filter:blur(48px);padding:0 32px;height:60px;display:flex;align-items:center;justify-content:space-between;}
+nav::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(191,160,70,.25),transparent);}
+.nav-left .title{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;font-style:italic;color:var(--cream);}
+.nav-left .title span{color:var(--gold);}
+.nav-left .sub{font-size:9px;font-weight:400;letter-spacing:.3em;text-transform:uppercase;color:rgba(255,255,255,.2);margin-top:2px;}
+.nav-right{display:flex;gap:8px;align-items:center;}
+
+.btn-nuke{background:rgba(255,50,80,.07);color:rgba(255,90,110,.8);border:1px solid rgba(255,50,80,.18);padding:8px 16px;border-radius:3px;font-family:'Outfit',sans-serif;font-size:10px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;cursor:none;transition:all .25s;}
+.btn-nuke:hover{background:rgba(255,50,80,.14);border-color:rgba(255,50,80,.35);box-shadow:0 0 20px rgba(255,50,80,.1);}
+.btn-back{background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);border:1px solid var(--border);padding:8px 16px;border-radius:3px;font-size:10px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;text-decoration:none;transition:all .25s;display:inline-block;cursor:none;}
+.btn-back:hover{background:rgba(255,255,255,.08);color:rgba(255,255,255,.8);}
+
+.wrap{max-width:1020px;margin:0 auto;padding:44px 28px 100px;position:relative;z-index:10;}
+
+/* SECTION */
+.section{margin-bottom:40px;}
+.sec-hd{display:flex;align-items:baseline;gap:12px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+.sec-title{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;font-style:italic;color:var(--cream);}
+.sec-count{font-size:9px;font-weight:500;letter-spacing:.3em;text-transform:uppercase;color:rgba(255,255,255,.2);font-family:'JetBrains Mono',monospace;}
+
+/* TABLE CARD */
+.tcard{background:var(--surface);border:1px solid var(--border);border-radius:5px;overflow:hidden;position:relative;}
+.tcard::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(191,160,70,.3),transparent);}
+
+table{width:100%;border-collapse:collapse;}
+thead th{padding:13px 20px;font-size:8px;font-weight:600;letter-spacing:.3em;text-transform:uppercase;color:rgba(255,255,255,.18);background:rgba(0,0,0,.35);text-align:left;border-bottom:1px solid var(--border);}
+tbody tr{border-bottom:1px solid rgba(255,255,255,.03);transition:background .15s;}
+tbody tr:hover{background:rgba(255,255,255,.02);}
+tbody td{padding:15px 20px;vertical-align:middle;font-size:13px;}
+
+.cell-name{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;font-style:italic;color:var(--cream);}
+.cell-budget{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--cyan);}
+.pass-chip{background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.07);padding:3px 10px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(255,255,255,.3);}
+.badge-admin{background:rgba(191,160,70,.09);color:rgba(191,160,70,.8);border:1px solid rgba(191,160,70,.18);padding:3px 10px;border-radius:3px;font-size:9px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;}
+.badge-user{background:rgba(0,196,232,.06);color:rgba(0,196,232,.7);border:1px solid rgba(0,196,232,.16);padding:3px 10px;border-radius:3px;font-size:9px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;}
+.badge-sold{background:rgba(0,232,160,.06);color:rgba(0,232,160,.75);border:1px solid rgba(0,232,160,.16);padding:3px 10px;border-radius:3px;font-size:9px;font-weight:600;}
+.badge-unsold{background:rgba(255,64,96,.06);color:rgba(255,80,100,.7);border:1px solid rgba(255,64,96,.16);padding:3px 10px;border-radius:3px;font-size:9px;font-weight:600;}
+.p-rating{display:inline-block;background:rgba(191,160,70,.09);border:1px solid rgba(191,160,70,.18);color:var(--gold);padding:2px 8px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;margin-right:8px;}
+.p-bid{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--green);margin-left:8px;}
+
+.acts{display:flex;gap:7px;justify-content:flex-end;}
+.btn-act{padding:6px 13px;border-radius:3px;font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;cursor:none;border:1px solid;transition:all .2s;font-family:'Outfit',sans-serif;}
+.btn-red{background:rgba(255,64,96,.07);color:rgba(255,90,110,.8);border-color:rgba(255,64,96,.18);}
+.btn-red:hover{background:rgba(255,64,96,.15);}
+.btn-blue{background:rgba(0,148,255,.07);color:rgba(70,185,255,.8);border-color:rgba(0,148,255,.18);}
+.btn-blue:hover{background:rgba(0,148,255,.14);}
+.btn-yellow{background:rgba(234,179,8,.07);color:rgba(250,200,50,.8);border-color:rgba(234,179,8,.18);}
+.btn-yellow:hover{background:rgba(234,179,8,.13);}
+.you{font-size:11px;color:rgba(255,255,255,.18);font-style:italic;padding:6px 0;}
+
+.empty-row td{text-align:center;color:rgba(255,255,255,.15);font-style:italic;font-size:12px;padding:40px;}
+
+::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:rgba(191,160,70,.14);border-radius:99px;}
+</style>
+</head>
+<body>
+
+<div id="cur"></div>
+<div id="cur-ring"></div>
+<div class="bg"></div>
+<div class="grain"></div>
+
+<nav>
+  <div class="nav-left">
+    <div class="title">System <span>Override</span></div>
+    <div class="sub">Room: {{ room_name }}</div>
+  </div>
+  <div class="nav-right">
+    <form action="{{ url_for('hard_reset_draft') }}" method="POST" onsubmit="return confirm('WARNING: Reset entire draft? All players and budgets will be wiped. Accounts stay.');">
+      <button type="submit" class="btn-nuke">New Season</button>
+    </form>
+    <a href="{{ url_for('auction') }}" class="btn-back">Back to Draft</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <div class="section">
+    <div class="sec-hd">
+      <span class="sec-title">Managers</span>
+      <span class="sec-count">Room Control</span>
+    </div>
+    <div class="tcard">
+      <table>
+        <thead>
+          <tr><th>Manager</th><th>Passcode</th><th>Role</th><th>Budget</th><th style="text-align:right;">Actions</th></tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td class="cell-name">{{ u.username }}</td>
+            <td><span class="pass-chip">{{ u.password }}</span></td>
+            <td>{% if u.role == 'admin' %}<span class="badge-admin">Admin</span>{% else %}<span class="badge-user">User</span>{% endif %}</td>
+            <td class="cell-budget">{{ u.budget }}<span style="font-size:11px;opacity:.45;">M</span></td>
+            <td>
+              {% if u.id != session.user_id %}
+              <div class="acts">
+                <form action="{{ url_for('make_admin', new_admin_id=u.id) }}" method="POST" onsubmit="return confirm('Make {{ u.username }} Admin?');">
+                  <button type="submit" class="btn-act btn-blue">Make Admin</button>
+                </form>
+                <form action="{{ url_for('delete_user', delete_id=u.id) }}" method="POST" onsubmit="return confirm('Kick {{ u.username }}?');">
+                  <button type="submit" class="btn-act btn-red">Kick</button>
+                </form>
+              </div>
+              {% else %}
+              <div class="acts"><span class="you">You (Admin)</span></div>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="sec-hd">
+      <span class="sec-title">Drafted Players</span>
+      <span class="sec-count">Auction History</span>
+    </div>
+    <div class="tcard">
+      <table>
+        <thead>
+          <tr><th>Player</th><th>Status</th><th>Winner &amp; Bid</th><th style="text-align:right;">Action</th></tr>
+        </thead>
+        <tbody>
+          {% for p in players %}
+          <tr>
+            <td>
+              <span class="p-rating">{{ p.rating }}</span>
+              <span style="font-family:'Playfair Display',serif;font-size:15px;font-weight:700;font-style:italic;color:var(--cream);">{{ p.name }}</span>
+            </td>
+            <td>{% if p.is_sold == 1 %}<span class="badge-sold">Sold</span>{% else %}<span class="badge-unsold">Unsold</span>{% endif %}</td>
+            <td>
+              {% if p.is_sold == 1 %}
+              <span style="font-weight:600;color:rgba(255,255,255,.75);">{{ p.highest_bidder }}</span>
+              <span class="p-bid">{{ p.current_bid }}M</span>
+              {% else %}
+              <span style="color:rgba(255,255,255,.15);font-style:italic;font-size:12px;">No bids</span>
+              {% endif %}
+            </td>
+            <td style="text-align:right;">
+              <form action="{{ url_for('reset_player', player_id=p.id) }}" method="POST" onsubmit="return confirm('Reset {{ p.name }}?');">
+                {% if p.is_sold == 1 %}<button type="submit" class="btn-act btn-red">Undo Sale</button>
+                {% else %}<button type="submit" class="btn-act btn-yellow">Revive</button>{% endif %}
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr class="empty-row"><td colspan="4">No players processed yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const cur=document.getElementById('cur'),ring=document.getElementById('cur-ring');
+let mx=window.innerWidth/2,my=window.innerHeight/2,rx=mx,ry=my;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;cur.style.left=mx+'px';cur.style.top=my+'px';});
+(function ra(){rx+=(mx-rx)*.1;ry+=(my-ry)*.1;ring.style.left=rx+'px';ring.style.top=ry+'px';requestAnimationFrame(ra);})();
+document.querySelectorAll('a,button').forEach(el=>{
+  el.addEventListener('mouseenter',()=>{ring.style.width='38px';ring.style.height='38px';ring.style.borderColor='rgba(191,160,70,.7)';ring.style.marginLeft='-5px';ring.style.marginTop='-5px';});
+  el.addEventListener('mouseleave',()=>{ring.style.width='28px';ring.style.height='28px';ring.style.borderColor='rgba(191,160,70,.38)';ring.style.marginLeft='0';ring.style.marginTop='0';});
+});
+</script>
+</body>
+</html>

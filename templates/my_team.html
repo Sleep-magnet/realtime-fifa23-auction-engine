@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="referrer" content="no-referrer">
+    <title>My Squad - Ultimate Draft</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Barlow:wght@400;600;700;800&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
+    <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Barlow', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] }, colors: { brand: { dark: '#04060D', neon: '#00FFA3' } } } } }</script>
+    <style>
+        body { background-color: #04060D; font-family: 'Barlow', sans-serif; overflow-x: hidden; }
+        .glass-panel { background: rgba(10, 14, 26, 0.85); border: 1px solid rgba(255, 255, 255, 0.06); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+        .dragging { opacity: 0.5; }
+        .drop-highlight { border-color: #00FFA3 !important; background-color: rgba(0, 255, 163, 0.15) !important; transform: scale(1.1); box-shadow: 0 0 20px rgba(0,255,163,0.3); }
+        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: rgba(0,255,163,0.2); border-radius: 99px; }
+        .filter-hidden { display: none !important; }
+        .orb { font-family: 'Orbitron', sans-serif; }
+        
+        /* 🔥 PITCH THEMES 🔥 */
+        .pitch-theme-classic { background-color: #1a532b; background-image: linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px); background-size: 40px 40px; }
+        .pitch-theme-classic .pitch-lines { border-color: rgba(255,255,255,0.4); }
+        .pitch-theme-midnight { background-color: #050505; background-image: linear-gradient(rgba(0,148,255,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(0,148,255,0.15) 1px, transparent 1px); background-size: 40px 40px; box-shadow: inset 0 0 100px rgba(0,148,255,0.3); border-color: #0094FF !important; }
+        .pitch-theme-midnight .pitch-lines { border-color: rgba(0,148,255,0.6) !important; box-shadow: 0 0 10px rgba(0,148,255,0.5); }
+        .pitch-theme-tundra { background-color: #e0f2fe; background-image: linear-gradient(rgba(186,230,253,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(186,230,253,0.8) 1px, transparent 1px); background-size: 40px 40px; border-color: #7dd3fc !important; box-shadow: inset 0 0 80px rgba(255,255,255,0.8); }
+        .pitch-theme-tundra .pitch-lines { border-color: rgba(2,132,199,0.5) !important; }
+        .pitch-theme-tundra .drop-zone { background-color: rgba(255,255,255,0.5); color: #0369a1; border-color: rgba(2,132,199,0.3); text-shadow: none; }
+        .pitch-theme-inferno { background-color: #2a0800; background-image: linear-gradient(rgba(220,38,38,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(220,38,38,0.15) 1px, transparent 1px); background-size: 40px 40px; border-color: #dc2626 !important; box-shadow: inset 0 0 80px rgba(220,38,38,0.4); }
+        .pitch-theme-inferno .pitch-lines { border-color: rgba(239,68,68,0.6) !important; }
+        .pitch-theme-gold { background-color: #0f1219; background-image: linear-gradient(rgba(212,175,55,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(212,175,55,0.1) 1px, transparent 1px); background-size: 40px 40px; border-color: #D4AF37 !important; box-shadow: inset 0 0 100px rgba(212,175,55,0.2); }
+        .pitch-theme-gold .pitch-lines { border-color: rgba(212,175,55,0.5) !important; }
+
+        .drop-zone { transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        
+        @keyframes popIn {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            80% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+        .animate-pop { animation: popIn 0.4s ease-out forwards; }
+    </style>
+</head>
+<body class="text-white min-h-screen" ondrop="dropOnBench(event)" ondragover="allowDrop(event)">
+
+    <nav class="glass-panel p-4 flex justify-between items-center border-b border-white/5 sticky top-0 z-50">
+        <div class="flex items-center gap-6">
+            <h1 class="text-2xl font-black italic tracking-wider orb">MY <span class="text-brand-neon">SQUAD</span></h1>
+            
+            <div id="remote-auction-status" class="hidden items-center gap-3 bg-black/40 px-4 py-1.5 rounded-lg border border-white/10 shadow-inner">
+                <div class="flex flex-col">
+                    <span class="text-[9px] text-white/40 uppercase tracking-widest font-black leading-none mb-0.5 orb">Live Auction</span>
+                    <span id="remote-player-name" class="text-white font-black uppercase tracking-wider text-sm leading-none truncate max-w-[140px] orb">...</span>
+                </div>
+                <div class="h-6 w-px bg-white/10 mx-1"></div>
+                <button id="remote-fold-btn" onclick="submitRemoteFold()" class="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold px-3 py-1.5 rounded transition-colors cursor-pointer orb">✋ FOLD</button>
+            </div>
+        </div>
+        
+        <div class="flex gap-3 items-center flex-wrap justify-end">
+            <div class="flex flex-col">
+                <input type="text" id="club-name-input" value="{{ club_name }}" placeholder="Club Name" class="bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-sm font-bold focus:border-brand-neon outline-none text-white placeholder-gray-500 w-40 transition-colors">
+            </div>
+            <div class="flex flex-col">
+                <input type="text" id="anthem-url-input" value="{{ anthem_url }}" placeholder="Walk-Out Anthem (MP3)" class="bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-brand-neon outline-none text-white placeholder-gray-500 w-48 transition-colors">
+            </div>
+            <a href="{{ url_for('auction') }}" class="bg-[#0094FF] hover:bg-[#007acc] px-5 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-transform active:scale-95 ml-2 orb shadow-lg shadow-blue-500/20">🔙 Back</a>
+        </div>
+    </nav>
+
+    <div class="max-w-[1400px] mx-auto mt-6 p-4 flex flex-col lg:flex-row gap-6 h-[85vh]">
+        
+        <div id="main-pitch" class="flex-grow relative rounded-2xl overflow-hidden border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] transition-colors duration-500 pitch-theme-{{ pitch_theme | default('classic') }}">
+            <div class="absolute inset-0 pointer-events-none opacity-60">
+                <div class="pitch-lines transition-colors duration-500 absolute top-1/2 left-0 w-full border-t-2 -translate-y-1/2"></div>
+                <div class="pitch-lines transition-colors duration-500 absolute top-1/2 left-1/2 w-32 h-32 border-2 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
+                <div class="pitch-lines transition-colors duration-500 absolute top-0 left-1/2 w-1/2 h-32 border-2 border-t-0 -translate-x-1/2"></div>
+                <div class="pitch-lines transition-colors duration-500 absolute bottom-0 left-1/2 w-1/2 h-32 border-2 border-b-0 -translate-x-1/2"></div>
+            </div>
+            
+            <div class="absolute top-4 right-4 z-20 flex gap-2">
+                <select id="theme-select" onchange="changeTheme(this.value)" class="glass-panel bg-black/80 text-white font-bold p-3 rounded-lg outline-none cursor-pointer border-white/10 hover:border-brand-neon transition-colors shadow-lg text-sm">
+                    <option value="classic" {% if pitch_theme == 'classic' %}selected{% endif %}>🏟️ Classic Grass</option>
+                    <option value="midnight" {% if pitch_theme == 'midnight' %}selected{% endif %}>🌃 Midnight Neon</option>
+                    <option value="tundra" {% if pitch_theme == 'tundra' %}selected{% endif %}>❄️ Frozen Tundra</option>
+                    <option value="inferno" {% if pitch_theme == 'inferno' %}selected{% endif %}>🌋 Volcanic Inferno</option>
+                    <option value="gold" {% if pitch_theme == 'gold' %}selected{% endif %}>👑 VIP Gold</option>
+                </select>
+                
+                <select id="formation-select" onchange="changeFormation(this.value)" class="glass-panel bg-black/80 text-white font-bold p-3 rounded-lg outline-none cursor-pointer border-white/10 hover:border-brand-neon transition-colors shadow-lg text-sm">
+                    <option value="4-4-2" {% if formation == '4-4-2' %}selected{% endif %}>4-4-2 Classic</option>
+                    <option value="4-3-3" {% if formation == '4-3-3' %}selected{% endif %}>4-3-3 Attack</option>
+                    <option value="3-5-2" {% if formation == '3-5-2' %}selected{% endif %}>3-5-2 Midfield</option>
+                    <option value="4-2-3-1" {% if formation == '4-2-3-1' %}selected{% endif %}>4-2-3-1 Narrow</option>
+                    <option value="5-3-2" {% if formation == '5-3-2' %}selected{% endif %}>5-3-2 Wingbacks</option>
+                    <option value="4-1-2-1-2" {% if formation == '4-1-2-1-2' %}selected{% endif %}>4-1-2-1-2 Diamond</option>
+                </select>
+            </div>
+            <div id="pitch-container" class="absolute inset-0 z-10"></div>
+        </div>
+
+        <div class="w-full lg:w-[400px] glass-panel rounded-2xl flex flex-col bg-[#090D1A]">
+            <div class="p-5 border-b border-white/5 bg-black/40 rounded-t-2xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="font-black text-xl tracking-tight text-white orb">BENCH</h2>
+                    <span class="text-xs text-brand-neon bg-brand-neon/10 px-3 py-1 rounded-full font-bold border border-brand-neon/20 orb">{{ players|length }} Players</span>
+                </div>
+                <div class="flex gap-1 bg-black/60 p-1.5 rounded-lg border border-white/10">
+                    <button onclick="filterBench('ALL')" data-cat="ALL" class="filter-btn flex-1 bg-brand-neon text-black text-xs font-bold py-2 rounded transition-colors orb">ALL</button>
+                    <button onclick="filterBench('ATT')" data-cat="ATT" class="filter-btn flex-1 bg-transparent text-white/40 hover:text-white text-xs font-bold py-2 rounded transition-colors orb">ATT</button>
+                    <button onclick="filterBench('MID')" data-cat="MID" class="filter-btn flex-1 bg-transparent text-white/40 hover:text-white text-xs font-bold py-2 rounded transition-colors orb">MID</button>
+                    <button onclick="filterBench('DEF')" data-cat="DEF" class="filter-btn flex-1 bg-transparent text-white/40 hover:text-white text-xs font-bold py-2 rounded transition-colors orb">DEF</button>
+                    <button onclick="filterBench('GK')" data-cat="GK" class="filter-btn flex-1 bg-transparent text-white/40 hover:text-white text-xs font-bold py-2 rounded transition-colors orb">GK</button>
+                </div>
+            </div>
+
+            <div class="p-4 flex-1 overflow-y-auto space-y-3" id="bench-list" ondrop="dropOnBench(event)" ondragover="allowDrop(event)">
+                {% for player in players %}
+                <div id="player-{{ player.id }}" draggable="true" ondragstart="drag(event)" data-id="{{ player.id }}" data-name="{{ player.name }}" data-rating="{{ player.rating }}" data-image="{{ player.image }}" data-pos="{{ player.position }}" class="bench-player bg-black/40 border border-white/5 p-3 rounded-xl flex items-center gap-4 hover:border-brand-neon/50 transition-colors cursor-grab active:cursor-grabbing group shadow-lg">
+                    <div class="w-14 h-14 rounded-full bg-gradient-to-b from-yellow-400 to-yellow-600 border border-yellow-300 text-black font-black flex items-center justify-center shadow-lg text-xl overflow-hidden relative shrink-0 orb">
+                        {% if player.image %}<img src="{{ player.image }}" class="absolute inset-0 w-full h-full object-cover object-top opacity-40 mix-blend-multiply">{% endif %}
+                        <span class="relative z-10">{{ player.rating }}</span>
+                    </div>
+                    <div class="flex-1 pointer-events-none overflow-hidden">
+                        <h3 class="font-black uppercase text-base tracking-tight truncate text-white">{{ player.name }}</h3>
+                        <div class="flex gap-2 mt-1">
+                            <span class="bg-white/10 text-gray-300 text-[10px] font-bold px-2 py-0.5 rounded">{{ player.position }}</span>
+                            <span class="text-[10px] text-green-400 font-mono font-bold bg-green-400/10 px-2 py-0.5 rounded border border-green-400/20">{{ player.current_bid }}M</span>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="h-full flex flex-col items-center justify-center text-center text-white/30 py-10 opacity-50">
+                    <span class="text-4xl mb-3">🪑</span>
+                    <p class="text-sm font-bold orb mb-1">Bench Empty</p>
+                    <p class="text-xs">Win players in the draft!</p>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="p-5 border-t border-white/5 bg-black/40 rounded-b-2xl shadow-[0_-10px_20px_rgba(0,0,0,0.5)] z-10">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-white/40 text-xs font-bold uppercase tracking-widest orb">Squad Rating</span>
+                    <span id="squad-rating" class="text-yellow-500 font-black text-3xl text-glow orb">0</span>
+                </div>
+                <div class="flex justify-between items-center mb-5">
+                    <span class="text-white/40 text-xs font-bold uppercase tracking-widest orb">On Pitch</span>
+                    <span class="text-white font-black text-xl orb"><span id="on-pitch-count" class="text-brand-neon">0</span><span class="text-white/30">/11</span></span>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button onclick="autoBuild()" class="flex-1 bg-yellow-500 hover:bg-yellow-400 text-black font-black py-3 rounded-xl shadow-[0_0_15px_rgba(234,179,8,0.3)] transition-transform active:scale-95 flex justify-center items-center gap-2 text-sm orb">
+                        <span>⚡</span> AUTO
+                    </button>
+                    <a href="{{ url_for('export_my_team') }}" class="flex-1 bg-[#0094FF] hover:bg-[#007acc] text-white font-black py-3 rounded-xl shadow-[0_0_15px_rgba(0,148,255,0.3)] transition-transform active:scale-95 flex justify-center items-center gap-2 text-sm text-center orb">
+                        📥 CSV
+                    </a>
+                    <button onclick="saveSquadState()" class="flex-1 bg-brand-neon hover:bg-[#00cc82] text-black font-black py-3 rounded-xl shadow-[0_0_15px_rgba(0,255,163,0.3)] transition-transform active:scale-95 text-sm orb">
+                        💾 SAVE
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const formations = {
+            '4-4-2': { 'pos-lst': {label: 'ST', t: '15%', l: '35%'}, 'pos-rst': {label: 'ST', t: '15%', l: '65%'}, 'pos-lm': {label: 'LM', t: '40%', l: '15%'}, 'pos-lcm': {label: 'CM', t: '45%', l: '35%'}, 'pos-rcm': {label: 'CM', t: '45%', l: '65%'}, 'pos-rm': {label: 'RM', t: '40%', l: '85%'}, 'pos-lb': {label: 'LB', t: '75%', l: '15%'}, 'pos-lcb': {label: 'CB', t: '80%', l: '35%'}, 'pos-rcb': {label: 'CB', t: '80%', l: '65%'}, 'pos-rb': {label: 'RB', t: '75%', l: '85%'}, 'pos-gk': {label: 'GK', t: '90%', l: '50%'} },
+            '4-3-3': { 'pos-lw': {label: 'LW', t: '15%', l: '20%'}, 'pos-st': {label: 'ST', t: '10%', l: '50%'}, 'pos-rw': {label: 'RW', t: '15%', l: '80%'}, 'pos-lcm': {label: 'CM', t: '40%', l: '30%'}, 'pos-cm': {label: 'CM', t: '45%', l: '50%'}, 'pos-rcm': {label: 'CM', t: '40%', l: '70%'}, 'pos-lb': {label: 'LB', t: '75%', l: '15%'}, 'pos-lcb': {label: 'CB', t: '80%', l: '35%'}, 'pos-rcb': {label: 'CB', t: '80%', l: '65%'}, 'pos-rb': {label: 'RB', t: '75%', l: '85%'}, 'pos-gk': {label: 'GK', t: '90%', l: '50%'} },
+            '3-5-2': { 'pos-lst': {label: 'ST', t: '15%', l: '35%'}, 'pos-rst': {label: 'ST', t: '15%', l: '65%'}, 'pos-cam': {label: 'CAM', t: '30%', l: '50%'}, 'pos-lm': {label: 'LM', t: '45%', l: '15%'}, 'pos-lcdm': {label: 'CDM', t: '50%', l: '35%'}, 'pos-rcdm': {label: 'CDM', t: '50%', l: '65%'}, 'pos-rm': {label: 'RM', t: '45%', l: '85%'}, 'pos-lcb': {label: 'CB', t: '80%', l: '25%'}, 'pos-cb': {label: 'CB', t: '80%', l: '50%'}, 'pos-rcb': {label: 'CB', t: '80%', l: '75%'}, 'pos-gk': {label: 'GK', t: '90%', l: '50%'} },
+            '4-2-3-1': { 'pos-st': {label: 'ST', t: '10%', l: '50%'}, 'pos-lam': {label: 'CAM', t: '30%', l: '25%'}, 'pos-cam': {label: 'CAM', t: '30%', l: '50%'}, 'pos-ram': {label: 'CAM', t: '30%', l: '75%'}, 'pos-ldm': {label: 'CDM', t: '50%', l: '35%'}, 'pos-rdm': {label: 'CDM', t: '50%', l: '65%'}, 'pos-lb': {label: 'LB', t: '75%', l: '15%'}, 'pos-lcb': {label: 'CB', t: '80%', l: '35%'}, 'pos-rcb': {label: 'CB', t: '80%', l: '65%'}, 'pos-rb': {label: 'RB', t: '75%', l: '85%'}, 'pos-gk': {label: 'GK', t: '90%', l: '50%'} },
+            '5-3-2': { 'pos-lst': {label: 'ST', t: '15%', l: '35%'}, 'pos-rst': {label: 'ST', t: '15%', l: '65%'}, 'pos-lcm': {label: 'CM', t: '45%', l: '30%'}, 'pos-cm': {label: 'CM', t: '45%', l: '50%'}, 'pos-rcm': {label: 'CM', t: '45%', l: '70%'}, 'pos-lwb': {label: 'LWB', t: '65%', l: '15%'}, 'pos-lcb': {label: 'CB', t: '80%', l: '30%'}, 'pos-cb': {label: 'CB', t: '80%', l: '50%'}, 'pos-rcb': {label: 'CB', t: '80%', l: '70%'}, 'pos-rwb': {label: 'RWB', t: '65%', l: '85%'}, 'pos-gk': {label: 'GK', t: '90%', l: '50%'} },
+            '4-1-2-1-2': { 'pos-lst': {label: 'ST', t: '15%', l: '35%'}, 'pos-rst': {label: 'ST', t: '15%', l: '65%'}, 'pos-cam': {label: 'CAM', t: '30%', l: '50%'}, 'pos-lm': {label: 'LM', t: '45%', l: '20%'}, 'pos-rm': {label: 'RM', t: '45%', l: '80%'}, 'pos-cdm': {label: 'CDM', t: '60%', l: '50%'}, 'pos-lb': {label: 'LB', t: '75%', l: '15%'}, 'pos-lcb': {label: 'CB', t: '80%', l: '35%'}, 'pos-rcb': {label: 'CB', t: '80%', l: '65%'}, 'pos-rb': {label: 'RB', t: '75%', l: '85%'}, 'pos-gk': {label: 'GK', t: '90%', l: '50%'} }
+        };
+
+        const currentFormation = "{{ formation }}";
+        const savedPositions = {};
+        {% for player in players %}{% if player.pitch_position %}savedPositions['{{ player.pitch_position }}'] = 'player-{{ player.id }}';{% endif %}{% endfor %}
+        
+        let activeFilter = 'ALL';
+        const positionGroups = {
+            'ATT': ['ST', 'CF', 'RW', 'LW', 'RF', 'LF'],
+            'MID': ['CAM', 'CM', 'CDM', 'RM', 'LM'],
+            'DEF': ['CB', 'RB', 'LB', 'RWB', 'LWB'],
+            'GK': ['GK']
+        };
+
+        // 🔥 THEME SWITCHER LOGIC 🔥
+        function changeTheme(themeName) {
+            const pitch = document.getElementById('main-pitch');
+            pitch.classList.remove('pitch-theme-classic', 'pitch-theme-midnight', 'pitch-theme-tundra', 'pitch-theme-inferno', 'pitch-theme-gold');
+            pitch.classList.add(`pitch-theme-${themeName}`);
+        }
+
+        function filterBench(category) {
+            activeFilter = category;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if (btn.dataset.cat === category) {
+                    btn.classList.add('bg-brand-neon', 'text-black');
+                    btn.classList.remove('bg-transparent', 'text-white/40');
+                } else {
+                    btn.classList.remove('bg-brand-neon', 'text-black');
+                    btn.classList.add('bg-transparent', 'text-white/40');
+                }
+            });
+
+            document.querySelectorAll('.bench-player').forEach(p => {
+                const pos = p.dataset.pos;
+                const matches = (category === 'ALL' || positionGroups[category].includes(pos));
+                if (matches) p.classList.remove('filter-hidden');
+                else p.classList.add('filter-hidden');
+            });
+        }
+
+        function renderPitch(f) {
+            const container = document.getElementById('pitch-container');
+            container.innerHTML = ''; 
+            for (const [posClass, data] of Object.entries(formations[f])) {
+                const dz = document.createElement('div');
+                dz.className = `drop-zone absolute w-20 h-20 rounded-full border-2 border-dashed border-white/30 bg-black/30 flex items-center justify-center font-bold text-white/50 backdrop-blur-md cursor-pointer hover:border-brand-neon hover:text-brand-neon hover:bg-black/60 shadow-lg orb`;
+                dz.id = posClass; dz.style.top = data.t; dz.style.left = data.l; dz.style.transform = 'translate(-50%, -50%)';
+                dz.setAttribute('data-label', data.label); 
+                dz.setAttribute('ondrop', 'dropOnPitch(event)'); dz.setAttribute('ondragover', 'allowDrop(event)'); dz.setAttribute('ondragenter', 'dragEnter(event)'); dz.setAttribute('ondragleave', 'dragLeave(event)'); dz.setAttribute('draggable', 'true'); dz.setAttribute('ondragstart', 'dragFromPitch(event)');
+                dz.innerText = data.label; container.appendChild(dz);
+            }
+            for (const [posId, playerId] of Object.entries(savedPositions)) {
+                const dz = document.getElementById(posId); const player = document.getElementById(playerId);
+                if(dz && player) placePlayer(player, dz);
+            }
+            updateStats();
+        }
+
+        function changeFormation(f) { 
+            document.querySelectorAll('.drop-zone[data-player-id]').forEach(dz => moveBackToBench(dz)); 
+            for (let key in savedPositions) delete savedPositions[key];
+            renderPitch(f); 
+        }
+
+        let draggedItem = null;
+        function allowDrop(ev) { ev.preventDefault(); }
+        function dragEnter(ev) { ev.preventDefault(); if(ev.target.classList.contains('drop-zone') && !ev.target.hasAttribute('data-player-id')) ev.target.classList.add('drop-highlight'); }
+        function dragLeave(ev) { if(ev.target.classList.contains('drop-zone')) ev.target.classList.remove('drop-highlight'); }
+        function drag(ev) { draggedItem = ev.target; ev.dataTransfer.effectAllowed = 'move'; setTimeout(()=>ev.target.classList.add('opacity-50'),0); }
+        function dragFromPitch(ev) { if(!ev.target.hasAttribute('data-player-id')) { ev.preventDefault(); return; } draggedItem = ev.target; ev.dataTransfer.effectAllowed = 'move'; }
+
+        function dropOnPitch(ev) {
+            ev.preventDefault(); ev.target.classList.remove('drop-highlight'); let targetDz = ev.target.closest('.drop-zone');
+            if (!targetDz || targetDz.hasAttribute('data-player-id')) return;
+            if (draggedItem.classList.contains('drop-zone')) { moveBackToBench(draggedItem); return; }
+            placePlayer(draggedItem, targetDz); updateStats();
+        }
+
+        function dropOnBench(ev) { ev.preventDefault(); if (draggedItem && draggedItem.classList.contains('drop-zone')) { moveBackToBench(draggedItem); updateStats(); } }
+
+        function placePlayer(playerCard, dz, animate = false) {
+            dz.setAttribute('data-player-id', playerCard.id); dz.setAttribute('data-rating', playerCard.dataset.rating);
+            dz.classList.remove('border-dashed', 'text-white/30', 'bg-black/30'); 
+            dz.classList.add('border-solid', 'border-brand-neon', 'bg-[#0B0F19]', 'shadow-[0_0_20px_rgba(0,255,163,0.5)]', 'overflow-hidden');
+            if (animate) {
+                dz.classList.remove('animate-pop');
+                void dz.offsetWidth; 
+                dz.classList.add('animate-pop');
+            }
+
+            const imgSrc = playerCard.dataset.image;
+            const imgHtml = imgSrc && imgSrc !== 'None' ? `<img src="${imgSrc}" class="absolute inset-0 w-full h-full object-cover object-top opacity-50 mix-blend-screen pointer-events-none">` : '';
+            dz.innerHTML = `
+                ${imgHtml}
+                <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80 pointer-events-none"></div>
+                <div class="flex flex-col items-center justify-center pointer-events-none relative z-10 w-full h-full">
+                    <span class="w-8 h-8 rounded-full bg-gradient-to-b from-yellow-400 to-yellow-600 border border-yellow-300 text-black font-black flex items-center justify-center text-sm mb-1 shadow-lg shadow-black/50 orb">${playerCard.dataset.rating}</span>
+                    <span class="text-white font-bold text-[10px] bg-black/80 px-2 py-0.5 rounded-md truncate max-w-[75px] tracking-wider border border-white/10 uppercase">${playerCard.dataset.name.substring(0,8)}</span>
+                </div>
+            `;
+            playerCard.classList.add('hidden');
+        }
+
+        function moveBackToBench(dz) {
+            const playerId = dz.getAttribute('data-player-id');
+            if (playerId) {
+                const playerCard = document.getElementById(playerId);
+                playerCard.classList.remove('hidden', 'opacity-50');
+                filterBench(activeFilter); 
+                dz.removeAttribute('data-player-id'); dz.removeAttribute('data-rating');
+                dz.classList.add('border-dashed', 'text-white/30', 'bg-black/30'); 
+                dz.classList.remove('border-solid', 'border-brand-neon', 'bg-[#0B0F19]', 'shadow-[0_0_20px_rgba(0,255,163,0.5)]', 'overflow-hidden', 'animate-pop');
+                dz.innerText = dz.getAttribute('data-label'); 
+            }
+        }
+
+        function updateStats() {
+            const players = document.querySelectorAll('.drop-zone[data-rating]'); let total = 0;
+            players.forEach(p => total += parseInt(p.dataset.rating));
+            document.getElementById('on-pitch-count').innerText = players.length;
+            document.getElementById('squad-rating').innerText = players.length ? Math.round(total / players.length) : 0;
+            if (players.length === 11) {
+                document.getElementById('squad-rating').classList.add('animate-pulse');
+            } else {
+                document.getElementById('squad-rating').classList.remove('animate-pulse');
+            }
+        }
+
+        document.addEventListener('dragend', () => { if(draggedItem) draggedItem.classList.remove('opacity-50'); draggedItem = null; document.querySelectorAll('.drop-highlight').forEach(el=>el.classList.remove('drop-highlight')); });
+
+        const posFallbacks = {
+            'ST': ['ST', 'CF', 'RF', 'LF', 'RW', 'LW'],
+            'LW': ['LW', 'LM', 'LF', 'ST'],
+            'RW': ['RW', 'RM', 'RF', 'ST'],
+            'LM': ['LM', 'LW', 'LWB', 'CM', 'CAM'],
+            'RM': ['RM', 'RW', 'RWB', 'CM', 'CAM'],
+            'CAM': ['CAM', 'CM', 'CF', 'RM', 'LM'],
+            'CM': ['CM', 'CAM', 'CDM', 'RM', 'LM'],
+            'CDM': ['CDM', 'CM', 'CB', 'LWB', 'RWB'],
+            'LWB': ['LWB', 'LB', 'LM'],
+            'RWB': ['RWB', 'RB', 'RM'],
+            'LB': ['LB', 'LWB', 'CB'],
+            'RB': ['RB', 'RWB', 'CB'],
+            'CB': ['CB', 'CDM', 'LB', 'RB'],
+            'GK': ['GK']
+        };
+
+        function autoBuild() {
+            filterBench('ALL'); 
+            document.querySelectorAll('.drop-zone[data-player-id]').forEach(dz => moveBackToBench(dz));
+            document.querySelectorAll('.drop-zone').forEach(dz => dz.removeAttribute('data-pending'));
+
+            let available = Array.from(document.querySelectorAll('.bench-player')).map(p => {
+                return { el: p, rating: parseInt(p.dataset.rating), pos: p.dataset.pos };
+            }).sort((a, b) => b.rating - a.rating);
+
+            const currentF = document.getElementById('formation-select').value;
+            const formConfig = formations[currentF];
+            const dropZones = Array.from(document.querySelectorAll('.drop-zone'));
+
+            let delayCounter = 0;
+            
+            const assignPlayer = (matchIdx, dz) => {
+                if (matchIdx > -1 && available.length > 0) {
+                    dz.setAttribute('data-pending', 'true'); 
+                    const p = available.splice(matchIdx, 1)[0]; 
+                    if (p) {
+                        setTimeout(() => placePlayer(p.el, dz, true), delayCounter * 100);
+                        delayCounter++;
+                    }
+                }
+            };
+
+            dropZones.forEach(dz => {
+                if (dz.hasAttribute('data-player-id') || dz.hasAttribute('data-pending')) return;
+                const reqPos = formConfig[dz.id].label;
+                const matchIdx = available.findIndex(p => p.pos === reqPos);
+                assignPlayer(matchIdx, dz);
+            });
+
+            dropZones.forEach(dz => {
+                if (dz.hasAttribute('data-player-id') || dz.hasAttribute('data-pending')) return;
+                const reqPos = formConfig[dz.id].label;
+                const allowed = posFallbacks[reqPos] || [];
+                const matchIdx = available.findIndex(p => allowed.includes(p.pos));
+                assignPlayer(matchIdx, dz);
+            });
+
+            dropZones.forEach(dz => {
+                if (dz.hasAttribute('data-player-id') || dz.hasAttribute('data-pending')) return;
+                const reqPos = formConfig[dz.id].label;
+                if (reqPos !== 'GK') {
+                    const matchIdx = available.findIndex(p => p.pos !== 'GK');
+                    if (matchIdx > -1) {
+                        assignPlayer(matchIdx, dz);
+                    } else if (available.length > 0) {
+                        assignPlayer(0, dz); 
+                    }
+                }
+            });
+
+            dropZones.forEach(dz => {
+                if (dz.hasAttribute('data-player-id') || dz.hasAttribute('data-pending')) return;
+                const reqPos = formConfig[dz.id].label;
+                if (reqPos === 'GK') {
+                    const matchIdx = available.findIndex(p => p.pos === 'GK');
+                    if (matchIdx > -1) {
+                        assignPlayer(matchIdx, dz);
+                    } else if (available.length > 0) {
+                        assignPlayer(0, dz); 
+                    }
+                }
+            });
+
+            setTimeout(() => {
+                document.querySelectorAll('.drop-zone').forEach(dz => dz.removeAttribute('data-pending'));
+                updateStats();
+            }, delayCounter * 100 + 100);
+        }
+
+        renderPitch(currentFormation);
+
+        function saveSquadState() {
+            const formation = document.getElementById('formation-select').value;
+            const club_name = document.getElementById('club-name-input').value;
+            const anthem_url = document.getElementById('anthem-url-input').value;
+            const pitch_theme = document.getElementById('theme-select').value;
+            
+            const positions = {};
+            document.querySelectorAll('.drop-zone').forEach(dz => { positions[dz.id] = dz.getAttribute('data-player-id') || null; });
+            
+            const btn = document.querySelector('button[onclick="saveSquadState()"]');
+            btn.innerHTML = '⏳ SAVING...';
+            
+            fetch('/save_squad_state', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ formation, positions, club_name, anthem_url, pitch_theme }) })
+            .then(r=>r.json()).then(d=>{ 
+                if(d.success) {
+                    btn.innerHTML = '✅ SAVED!';
+                    btn.classList.add('bg-green-500', 'text-black');
+                    setTimeout(() => { btn.innerHTML = '💾 SAVE'; btn.classList.remove('bg-green-500', 'text-black'); }, 2000);
+                } 
+            });
+        }
+
+        // 🔥 REMOTE AUCTION SYNC LOGIC 🔥
+        function submitRemoteFold() {
+            const btn = document.getElementById('remote-fold-btn');
+            btn.disabled = true;
+            btn.innerText = "Folding...";
+            
+            fetch('/fold', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    btn.innerText = "⛔ FOLDED";
+                    btn.className = "bg-white/5 text-white/20 border border-white/10 text-xs font-bold px-3 py-1.5 rounded cursor-not-allowed orb";
+                } else if (data.error) {
+                    alert(data.error);
+                    btn.disabled = false;
+                    btn.innerText = "✋ FOLD";
+                }
+            }).catch(err => {
+                btn.disabled = false;
+                btn.innerText = "✋ FOLD";
+            });
+        }
+
+        setInterval(() => {
+            fetch('/auction_status')
+                .then(r => r.json())
+                .then(data => {
+                    const statusContainer = document.getElementById('remote-auction-status');
+                    if (data.status === 'live' || data.status === 'paused') {
+                        statusContainer.classList.remove('hidden');
+                        statusContainer.classList.add('flex');
+                        document.getElementById('remote-player-name').innerText = data.player_name;
+
+                        const foldBtn = document.getElementById('remote-fold-btn');
+                        const userFolded = data.folded_users && data.folded_users.includes("{{ session.username }}");
+                        const isWinning = data.highest_bidder === "{{ session.username }}" && !data.player_name.includes("Lewandowski");
+
+                        if (userFolded) {
+                            foldBtn.disabled = true;
+                            foldBtn.innerText = "⛔ FOLDED";
+                            foldBtn.className = "bg-white/5 text-white/20 border border-white/10 text-xs font-bold px-3 py-1.5 rounded cursor-not-allowed orb";
+                        } else if (isWinning) {
+                            foldBtn.disabled = true;
+                            foldBtn.innerText = "👑 WINNING";
+                            foldBtn.className = "bg-yellow-500/20 text-yellow-500 border border-yellow-500/30 text-xs font-bold px-3 py-1.5 rounded cursor-not-allowed orb";
+                        } else {
+                            foldBtn.disabled = false;
+                            foldBtn.innerText = "✋ FOLD";
+                            foldBtn.className = "bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold px-3 py-1.5 rounded transition-colors cursor-pointer orb";
+                        }
+                    } else {
+                        statusContainer.classList.add('hidden');
+                        statusContainer.classList.remove('flex');
+                    }
+                }).catch(e => console.log("Remote auction sync error", e));
+        }, 2000);
+    </script>
+</body>
+</html>

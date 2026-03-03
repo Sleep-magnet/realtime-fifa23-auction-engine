@@ -1,0 +1,123 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+}
+
+/* Background glow */
+.background-overlay {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at top right, rgba(255,215,0,0.2), transparent 60%);
+    animation: pulse 6s infinite alternate;
+}
+
+@keyframes pulse {
+    from { opacity: 0.4; }
+    to { opacity: 0.8; }
+}
+
+.auth-wrapper {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+/* Card */
+.auth-card {
+    background: rgba(30, 41, 59, 0.95);
+    padding: 45px;
+    width: 350px;
+    border-radius: 20px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+    text-align: center;
+    color: white;
+    backdrop-filter: blur(8px);
+    transition: 0.3s;
+}
+
+.auth-card:hover {
+    transform: translateY(-5px);
+}
+
+/* Title */
+.auth-card h1 {
+    margin-bottom: 5px;
+    font-size: 28px;
+    letter-spacing: 1px;
+}
+
+.subtitle {
+    font-size: 14px;
+    margin-bottom: 25px;
+    color: #cbd5e1;
+}
+
+/* Floating input */
+.input-group {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 12px 10px;
+    border: none;
+    border-bottom: 2px solid #475569;
+    background: transparent;
+    color: white;
+    font-size: 14px;
+    outline: none;
+}
+
+.input-group label {
+    position: absolute;
+    left: 10px;
+    top: 12px;
+    color: #94a3b8;
+    transition: 0.3s;
+    pointer-events: none;
+}
+
+.input-group input:focus + label,
+.input-group input:valid + label {
+    top: -10px;
+    font-size: 11px;
+    color: gold;
+}
+
+/* Button */
+.auth-card button {
+    width: 100%;
+    padding: 12px;
+    background: gold;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.auth-card button:hover {
+    background: #facc15;
+    transform: scale(1.02);
+}
+
+/* Switch link */
+.switch {
+    margin-top: 18px;
+    font-size: 13px;
+}
+
+.switch a {
+    color: gold;
+    text-decoration: none;
+    font-weight: bold;
+}

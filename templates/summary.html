@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Draft Gala — Results</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Barlow:wght@300;400;600;700&family=Barlow+Condensed:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --gold: #D4AF37;
+            --gold-light: #FCF6BA;
+            --cyan: #00D4FF;
+            --green: #00FF88;
+            --red: #FF003C;
+            --bg: #04060D;
+            --card-bg: rgba(10,14,26,0.92);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--bg);
+            font-family: 'Barlow', sans-serif;
+            color: white;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* ─── BACKGROUND ─── */
+        .hex-grid {
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='104'%3E%3Cpath d='M30 2 L58 18 L58 50 L30 66 L2 50 L2 18 Z' fill='none' stroke='rgba(212,175,55,0.04)' stroke-width='1'/%3E%3Cpath d='M30 36 L58 52 L58 84 L30 100 L2 84 L2 52 Z' fill='none' stroke='rgba(212,175,55,0.04)' stroke-width='1'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 0;
+        }
+        .bg-blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            pointer-events: none;
+            z-index: 0;
+            animation: drift 20s ease-in-out infinite alternate;
+        }
+        @keyframes drift { 0% { transform: translate(0,0) scale(1); } 100% { transform: translate(40px, 30px) scale(1.1); } }
+
+        /* ─── LOADING SCREEN ─── */
+        #globalLoader {
+            position: fixed; inset: 0; z-index: 999;
+            background: var(--bg);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.8s ease;
+        }
+        #globalLoader.hidden { opacity: 0; pointer-events: none; }
+        .loader-ring {
+            width: 90px; height: 90px;
+            border: 2px solid rgba(212,175,55,0.15);
+            border-top-color: var(--gold);
+            border-right-color: var(--gold);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loader-progress {
+            width: 200px; height: 1px;
+            background: rgba(212,175,55,0.15);
+            margin-top: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+        .loader-fill {
+            position: absolute; inset: 0;
+            background: linear-gradient(90deg, var(--gold), var(--gold-light));
+            transform: translateX(-100%);
+            animation: progress 1.5s ease forwards 0.3s;
+        }
+        @keyframes progress { to { transform: translateX(0); } }
+
+        /* ─── SCANLINE ─── */
+        .scanline {
+            position: fixed; inset: 0;
+            background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.08) 3px, rgba(0,0,0,0.08) 4px);
+            pointer-events: none; z-index: 1;
+        }
+
+        /* ─── SPOTLIGHT ─── */
+        .spotlight {
+            position: fixed; top: -20%; left: 50%;
+            width: 80vw; height: 80vh;
+            background: radial-gradient(ellipse at top, rgba(212,175,55,0.08), transparent 70%);
+            transform-origin: top center;
+            animation: spotlight 10s ease-in-out infinite;
+            pointer-events: none; z-index: 1;
+        }
+        @keyframes spotlight { 0%, 100% { transform: rotate(-10deg); opacity: 0.6; } 50% { transform: rotate(10deg); opacity: 1; } }
+
+        /* ─── CORNER BRACKETS ─── */
+        .bracket::before, .bracket::after {
+            content: '';
+            position: absolute;
+            width: 16px; height: 16px;
+            pointer-events: none;
+        }
+        .bracket::before { top: 0; left: 0; border-top: 2px solid var(--gold); border-left: 2px solid var(--gold); }
+        .bracket::after { bottom: 0; right: 0; border-bottom: 2px solid var(--gold); border-right: 2px solid var(--gold); }
+
+        /* ─── GOLD GRADIENT TEXT ─── */
+        .text-gold-grad {
+            background: linear-gradient(135deg, #BF953F, #FCF6BA, #D4AF37, #FCF6BA, #AA771C);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* ─── GLASS CARD ─── */
+        .glass {
+            background: var(--card-bg);
+            border: 1px solid rgba(212,175,55,0.15);
+            backdrop-filter: blur(20px);
+        }
+        .glass-cyan {
+            background: rgba(0, 22, 40, 0.9);
+            border: 1px solid rgba(0,212,255,0.15);
+            backdrop-filter: blur(20px);
+        }
+        .glass-green {
+            background: rgba(0, 20, 15, 0.9);
+            border: 1px solid rgba(0,255,136,0.15);
+            backdrop-filter: blur(20px);
+        }
+
+        /* ─── GLOW EFFECTS ─── */
+        .glow-gold { box-shadow: 0 0 30px rgba(212,175,55,0.2), inset 0 0 30px rgba(212,175,55,0.03); }
+        .glow-cyan { box-shadow: 0 0 30px rgba(0,212,255,0.2), inset 0 0 30px rgba(0,212,255,0.03); }
+        .glow-green { box-shadow: 0 0 30px rgba(0,255,136,0.2), inset 0 0 30px rgba(0,255,136,0.03); }
+
+        /* ─── CHAMPION SECTION ─── */
+        .champion-aura {
+            position: absolute;
+            inset: -2px;
+            background: linear-gradient(135deg, #BF953F, #FCF6BA, #D4AF37, #BF953F);
+            border-radius: inherit;
+            z-index: -1;
+            animation: aura-pulse 3s ease-in-out infinite;
+            filter: blur(4px);
+        }
+        @keyframes aura-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.9; } }
+
+        .trophy-3d {
+            display: inline-block;
+            font-size: 5rem;
+            animation: trophy-float 4s ease-in-out infinite;
+            filter: drop-shadow(0 0 30px rgba(212,175,55,0.8));
+        }
+        @keyframes trophy-float {
+            0%, 100% { transform: translateY(0) rotate(-3deg); }
+            50% { transform: translateY(-15px) rotate(3deg); }
+        }
+
+        /* ─── PODIUM ─── */
+        .podium-block {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+        .podium-crown { font-size: 2rem; margin-bottom: 8px; animation: crown-bob 2s ease-in-out infinite; }
+        @keyframes crown-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+        .podium-avatar {
+            width: 70px; height: 70px;
+            border-radius: 50%;
+            border: 2px solid;
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem; font-weight: 900;
+            margin-bottom: 10px;
+        }
+        .podium-1 .podium-avatar { border-color: var(--gold); box-shadow: 0 0 20px rgba(212,175,55,0.5); background: rgba(212,175,55,0.1); color: var(--gold); }
+        .podium-2 .podium-avatar { border-color: #C0C0C0; box-shadow: 0 0 15px rgba(192,192,192,0.3); background: rgba(192,192,192,0.05); color: #C0C0C0; }
+        .podium-3 .podium-avatar { border-color: #CD7F32; box-shadow: 0 0 15px rgba(205,127,50,0.3); background: rgba(205,127,50,0.05); color: #CD7F32; }
+
+        .podium-bar {
+            width: 120px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid;
+            border-top: none;
+            display: flex; align-items: flex-start; justify-content: center;
+            padding-top: 12px;
+        }
+        .podium-1 .podium-bar { height: 100px; border-color: rgba(212,175,55,0.4); background: rgba(212,175,55,0.05); }
+        .podium-2 .podium-bar { height: 70px; border-color: rgba(192,192,192,0.3); background: rgba(192,192,192,0.03); }
+        .podium-3 .podium-bar { height: 50px; border-color: rgba(205,127,50,0.3); background: rgba(205,127,50,0.03); }
+
+        /* ─── FUT PLAYER CARD ─── */
+        .fut-card {
+            width: 160px; height: 210px;
+            background: linear-gradient(145deg, #1a1a2e, #16213e, #0f3460);
+            border: 1px solid rgba(212,175,55,0.5);
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 40px rgba(212,175,55,0.3), 0 20px 60px rgba(0,0,0,0.8);
+            flex-shrink: 0;
+        }
+        .fut-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(212,175,55,0.15) 0%, transparent 40%, rgba(212,175,55,0.05) 100%);
+        }
+        .fut-card-shine {
+            position: absolute; inset: 0;
+            background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
+            animation: card-shine 4s ease-in-out infinite;
+        }
+        @keyframes card-shine { 0%, 100% { transform: translateX(-100%); } 50% { transform: translateX(100%); } }
+        .fut-rating {
+            position: absolute; top: 10px; left: 12px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.8rem; font-weight: 900;
+            color: var(--gold);
+            text-shadow: 0 0 20px rgba(212,175,55,0.8);
+        }
+        .fut-player-img {
+            position: absolute; bottom: 0; left: 50%;
+            transform: translateX(-50%);
+            height: 75%;
+            object-fit: contain;
+            filter: drop-shadow(0 0 15px rgba(212,175,55,0.3));
+        }
+        .fut-card-label {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,0.9));
+            padding: 20px 8px 8px;
+            text-align: center;
+        }
+
+        /* ─── STAT BAR ─── */
+        .stat-bar-track {
+            height: 4px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+        }
+        .stat-bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .stat-bar-fill.animate { transform: scaleX(1); }
+
+        /* ─── AWARD CARD ─── */
+        .award-icon {
+            width: 50px; height: 50px;
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4rem;
+            margin-bottom: 12px;
+        }
+
+        /* ─── TEAM CARD ─── */
+        .team-rank-badge {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem; font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        /* ─── ANIMATIONS ─── */
+        @keyframes fade-up { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes scale-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+
+        .reveal { opacity: 0; }
+        .reveal.visible { animation: fade-up 0.7s cubic-bezier(0.16,1,0.3,1) forwards; }
+
+        /* ─── SCROLLBAR ─── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.3); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
+        /* ─── PARTICLES ─── */
+        @keyframes floatUp { 0% { transform: translateY(100vh) scale(0.5); opacity: 0; } 50% { opacity: 0.6; } 100% { transform: translateY(-10vh) scale(1.2); opacity: 0; } }
+        .particle { position: fixed; background: radial-gradient(circle, var(--gold), transparent); border-radius: 50%; pointer-events: none; animation: floatUp linear infinite; z-index: 2; }
+
+        /* ─── SECTION DIVIDER ─── */
+        .section-label {
+            display: flex; align-items: center; gap: 16px;
+            margin-bottom: 24px;
+        }
+        .section-label::before, .section-label::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(212,175,55,0.2));
+        }
+        .section-label::after { background: linear-gradient(270deg, transparent, rgba(212,175,55,0.2)); }
+
+        /* ─── NAV ─── */
+        .nav-btn {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.6rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            padding: 8px 20px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        /* ─── ADMIN MODAL ─── */
+        #adminModal { display: none; }
+
+        /* ─── COUNTER ─── */
+        .stat-num {
+            font-family: 'JetBrains Mono', monospace;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loading Screen -->
+    <div id="globalLoader">
+        <div class="loader-ring mb-8"></div>
+        <p style="font-family:'Orbitron',sans-serif; font-size:0.55rem; letter-spacing:0.5em; color:var(--gold); text-transform:uppercase; margin-bottom:24px;">
+            Compiling Draft Results
+        </p>
+        <div class="loader-progress">
+            <div class="loader-fill"></div>
+        </div>
+        <p style="position:absolute; bottom:30px; font-family:'JetBrains Mono',monospace; font-size:0.6rem; color:rgba(255,255,255,0.1); letter-spacing:0.3em;">
+            DRAFT GALA '26 SYSTEM
+        </p>
+    </div>
+
+    <!-- Admin Reset Modal -->
+    <div id="adminModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-xl px-4">
+        <div style="max-width:420px; width:100%; background:rgba(30,0,0,0.95); border:1px solid rgba(255,0,60,0.4); padding:40px; position:relative;" class="bracket">
+            <div style="position:absolute; inset:-1px; background:rgba(255,0,60,0.05); pointer-events:none;"></div>
+            <p style="font-family:'Orbitron',sans-serif; font-size:0.6rem; letter-spacing:0.4em; color:var(--red); text-transform:uppercase; margin-bottom:16px;">⚠ Danger Zone</p>
+            <h2 style="font-family:'Orbitron',sans-serif; font-size:1.6rem; font-weight:900; color:white; margin-bottom:12px; line-height:1.2;">RESET DRAFT?</h2>
+            <p style="color:rgba(255,255,255,0.4); font-size:0.85rem; line-height:1.7; margin-bottom:32px;">
+                All drafting data, squad rosters, and bid history will be <span style="color:var(--red); font-weight:600;">permanently deleted</span>. This cannot be undone.
+            </p>
+            <form action="{{ url_for('hard_reset_draft') }}" method="POST" onsubmit="handleResetLoading()">
+                <button type="submit" style="width:100%; background:var(--red); font-family:'Orbitron',sans-serif; font-size:0.65rem; letter-spacing:0.2em; font-weight:700; color:white; padding:16px; border:none; cursor:pointer; transition:all 0.3s; text-transform:uppercase;">
+                    Confirm Reset Everything
+                </button>
+            </form>
+            <button onclick="closeAdminWarning()" style="display:block; width:100%; margin-top:12px; background:none; border:none; color:rgba(255,255,255,0.3); font-family:'Orbitron',sans-serif; font-size:0.55rem; letter-spacing:0.2em; cursor:pointer; padding:10px; text-transform:uppercase; transition:color 0.3s;">
+                Cancel
+            </button>
+        </div>
+    </div>
+
+    <!-- Background -->
+    <div class="hex-grid"></div>
+    <div class="bg-blob" style="width:500px;height:500px;background:rgba(212,175,55,0.06);top:-100px;left:-100px;animation-duration:18s;"></div>
+    <div class="bg-blob" style="width:400px;height:400px;background:rgba(0,212,255,0.04);bottom:-50px;right:-50px;animation-duration:22s;animation-direction:alternate-reverse;"></div>
+    <div class="scanline"></div>
+    <div class="spotlight"></div>
+    <div id="particles"></div>
+
+    <div style="position:relative; z-index:10; max-width:1440px; margin:0 auto; padding:0 24px;">
+
+        <!-- NAV -->
+        <nav style="padding:20px 0; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(212,175,55,0.08); margin-bottom:0;">
+            <div>
+                <p style="font-family:'Orbitron',sans-serif; font-size:0.55rem; letter-spacing:0.4em; color:rgba(212,175,55,0.5); text-transform:uppercase; margin-bottom:2px;">✦ DRAFT GALA '26 ✦</p>
+                <h1 style="font-family:'Orbitron',sans-serif; font-size:1.1rem; font-weight:900; background:linear-gradient(135deg,#BF953F,#FCF6BA,#D4AF37); -webkit-background-clip:text; -webkit-text-fill-color:transparent; letter-spacing:0.15em;">GALA RESULTS</h1>
+            </div>
+            <div style="display:flex; gap:12px; align-items:center;">
+                {% if session.get('role') == 'admin' %}
+                <button onclick="showAdminWarning()" class="nav-btn" style="color:var(--red); border:1px solid rgba(255,0,60,0.3); background:rgba(255,0,60,0.05);">
+                    ⚡ Reset Draft
+                </button>
+                {% else %}
+                <a href="{{ url_for('auction') }}" class="nav-btn" style="color:rgba(255,255,255,0.4); border:1px solid rgba(255,255,255,0.08); background:transparent; text-decoration:none;">
+                    ← Auction
+                </a>
+                {% endif %}
+                <a href="{{ url_for('my_team') }}" class="nav-btn" style="color:var(--gold); border:1px solid rgba(212,175,55,0.4); background:rgba(212,175,55,0.06); text-decoration:none;">
+                    Edit Squad
+                </a>
+            </div>
+        </nav>
+
+        <!-- HERO -->
+        <div style="text-align:center; padding:64px 0 48px; position:relative;" class="reveal">
+            <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:400px; height:400px; background:radial-gradient(circle, rgba(212,175,55,0.06), transparent 70%); border-radius:50%; pointer-events:none;"></div>
+            <div class="trophy-3d">🏆</div>
+            <h1 style="font-family:'Orbitron',sans-serif; font-size:clamp(2.5rem,6vw,5rem); font-weight:900; letter-spacing:0.05em; line-height:1; margin-top:16px; background:linear-gradient(135deg,#BF953F,#FCF6BA,#D4AF37,#FCF6BA,#AA771C); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">
+                AUCTION COMPLETE
+            </h1>
+            <p style="font-family:'Barlow Condensed',sans-serif; font-size:0.85rem; letter-spacing:0.5em; color:rgba(255,255,255,0.25); text-transform:uppercase; margin-top:12px;">
+                The Ultimate Roster Has Been Forged
+            </p>
+        </div>
+
+        <!-- CHAMPION + PODIUM + RECORD SIGNING -->
+        <div style="display:grid; grid-template-columns:1fr auto 280px; gap:24px; margin-bottom:24px; align-items:stretch;" class="reveal">
+
+            <!-- CHAMPION CARD -->
+            <div style="position:relative; border-radius:4px; overflow:hidden;" class="glow-gold">
+                <div class="champion-aura"></div>
+                <div style="position:relative; z-index:1; background:rgba(6,4,0,0.96); border:1px solid rgba(212,175,55,0.1); height:100%; padding:40px; display:flex; flex-direction:column; justify-content:center;">
+                    <div style="position:absolute; top:0; right:0; width:200px; height:200px; background:radial-gradient(circle at top right, rgba(212,175,55,0.08), transparent); pointer-events:none;"></div>
+                    <p style="font-family:'Orbitron',sans-serif; font-size:0.55rem; letter-spacing:0.5em; color:var(--gold); text-transform:uppercase; margin-bottom:8px;">✦ Auction Champion ✦</p>
+                    <h2 style="font-family:'Orbitron',sans-serif; font-size:clamp(1.8rem,4vw,3.2rem); font-weight:900; background:linear-gradient(135deg,#BF953F,#FCF6BA,#D4AF37); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:8px; line-height:1.1;">
+                        {{ champion.username }} 👑
+                    </h2>
+                    <div style="width:60px; height:2px; background:linear-gradient(90deg,var(--gold),transparent); margin-bottom:24px;"></div>
+                    <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:20px;">
+                        <div>
+                            <p style="font-family:'Barlow Condensed',sans-serif; font-size:0.65rem; letter-spacing:0.3em; color:rgba(255,255,255,0.3); text-transform:uppercase; margin-bottom:4px;">Squad Rating</p>
+                            <p class="stat-num counter" data-target="{{ champion.avg_rating }}" style="font-size:2.5rem; font-weight:700; color:white;">0</p>
+                        </div>
+                        <div>
+                            <p style="font-family:'Barlow Condensed',sans-serif; font-size:0.65rem; letter-spacing:0.3em; color:rgba(255,255,255,0.3); text-transform:uppercase; margin-bottom:4px;">Players Drafted</p>
+                            <p class="stat-num counter" data-target="{{ champion.won }}" style="font-size:2.5rem; font-weight:700; color:white;">0</p>
+                        </div>
+                        <div>
+                            <p style="font-family:'Barlow Condensed',sans-serif; font-size:0.65rem; letter-spacing:0.3em; color:rgba(255,255,255,0.3); text-transform:uppercase; margin-bottom:4px;">Total Spent</p>
+                            <p class="stat-num counter" data-target="{{ champion.spent }}" style="font-size:2.5rem; font-weight:700; color:var(--gold);">0</p>
+                        </div>
+                        <div>
+                            <p style="font-family:'Barlow Condensed',sans-serif; font-size:0.65rem; letter-spacing:0.3em; color:rgba(255,255,255,0.3); text-transform:uppercase; margin-bottom:4px;">Remaining</p>
+                            <p class="stat-num counter" data-target="{{ champion.budget }}" style="font-size:2.5rem; font-weight:700; color:rgba(255,255,255,0.5);">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PODIUM -->
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:flex-end; padding-bottom:0; gap:0;">
+                <p style="font-family:'Orbitron',sans-serif; font-size:0.5rem; letter-spacing:0.4em; color:rgba(255,255,255,0.2); text-transform:uppercase; margin-bottom:24px;">Manager Podium</p>
+                <div style="display:flex; align-items:flex-end; gap:12px;">
+                    
+                    <!-- 2nd -->
+                    {% if teams|length >= 2 %}
+                    <div class="podium-block podium-2">
+                        <div class="podium-crown" style="opacity:0.6">🥈</div>
+                        <div class="podium-avatar" style="border-color:#C0C0C0; color:#C0C0C0; background:rgba(192,192,192,0.05); box-shadow:0 0 15px rgba(192,192,192,0.2);">
+                            {{ teams[1].username[:1].upper() }}
+                        </div>
+                        <p style="font-family:'Orbitron',sans-serif; font-size:0.6rem; font-weight:700; color:#C0C0C0; text-align:center; margin-bottom:6px; white-space:nowrap; max-width:120px; overflow:hidden; text-overflow:ellipsis;">{{ teams[1].username }}</p>
+                        <p style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:rgba(192,192,192,0.5); margin-bottom:8px;">{{ teams[1].avg_rating }}</p>
+                        <div class="podium-bar" style="height:70px; border-color:rgba(192,192,192,0.3); background:rgba(192,192,192,0.03);">
+                            <span style="font-family:'Orbitron',sans-serif; font-size:0.7rem; color:rgba(192,192,192,0.4); font-weight:700;">2</span>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- 1st -->
+                    <div class="podium-block podium-1">
+                        <div class="podium-crown">👑</div>
+                        <div class="podium-avatar" style="width:80px; height:80px; font-size:1.8rem; border-color:var(--gold); color:var(--gold); background:rgba(212,175,55,0.08); box-shadow:0 0 25px rgba(212,175,55,0.4);">
+                            {{ teams[0].username[:1].upper() if teams else '?' }}
+                        </div>
+                        <p style="font-family:'Orbitron',sans-serif; font-size:0.65rem; font-weight:700; color:var(--gold); text-align:center; margin-bottom:6px; white-space:nowrap; max-width:120px; overflow:hidden; text-overflow:ellipsis;">{{ teams[0].username if teams else '-' }}</p>
+                        <p style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:rgba(212,175,55,0.6); margin-bottom:8px;">{{ teams[0].avg_rating if teams else '-' }}</p>
+                        <div class="podium-bar" style="height:100px; border-color:rgba(212,175,55,0.4); background:rgba(212,175,55,0.05);">
+                            <span style="font-family:'Orbitron',sans-serif; font-size:0.8rem; color:rgba(212,175,55,0.5); font-weight:900;">1</span>
+                        </div>
+                    </div>
+
+                    <!-- 3rd -->
+                    {% if teams|length >= 3 %}
+                    <div class="podium-block podium-3">
+                        <div class="podium-crown" style="opacity:0.6">🥉</div>
+                        <div class="podium-avatar" style="border-color:#CD7F32; color:#CD7F32; background:rgba(205,127,50,0.05); box-shadow:0 0 12px rgba(205,127,50,0.2);">
+                            {{ teams[2].username[:1].upper() }}
+                        </div>
+                        <p style="font-family:'Orbitron',sans-serif; font-size:0.6rem; font-weight:700; color:#CD7F32; text-align:center; margin-bottom:6px; white-space:nowrap; max-width:120px; overflow:hidden; text-overflow:ellipsis;">{{ teams[2].username }}</p>
+                        <p style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:rgba(205,127,50,0.5); margin-bottom:8px;">{{ teams[2].avg_rating }}</p>
+                        <div class="podium-bar" style="height:50px; border-color:rgba(205,127,50,0.3); background:rgba(205,127,50,0.03);">
+                            <span style="font-family:'Orbitron',sans-serif; font-size:0.7rem; color:rgba(205,127,50,0.4); font-weight:700;">3</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- RECORD SIGNING (FUT Card) -->
+            <div class="glass glow-gold" style="border-radius:4px; padding:28px; display:flex; flex-direction:column; align-items:center; text-align:center;" class="bracket">
+                <p style="font-family:'Orbitron',sans-serif; font-size:0.5rem; letter-spacing:0.4em; color:var(--gold); text-transform:uppercase; margin-bottom:20px;">🔥 Record Signing</p>
+                {% if most_expensive %}
+                <div class="fut-card" style="margin-bottom:20px;">
+                    <div class="fut-card-shine"></div>
+                    <div class="fut-rating">{{ most_expensive.rating }}</div>
+                    <img src="{{ most_expensive.image }}" class="fut-player-img" alt="{{ most_expensive.name }}" onerror="this.style.display='none'">
+                    <div class="fut-card-label">
+                        <p style="font-family:'Barlow Condensed',sans-serif; font-size:0.7rem; font-weight:900; text-transform:uppercase; letter-spacing:0.1em;">{{ most_expensive.name }}</p>
+                    </div>
+                </div>
+                <div style="font-family:'JetBrains Mono',monospace; font-size:2rem; font-weight:700; background:linear-gradient(135deg,#BF953F,#FCF6BA); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">
+                    {{ most_expensive.current_bid }}M
+                </div>
+                <p style="font-size:0.75rem; color:rgba(255,255,255,0.3); margin-top:6px; font-style:italic;">
+                    Secured by <span style="color:var(--gold);">{{ most_expensive.highest_bidder }}</span>
+                </p>
+                {% else %}
+                <p style="color:rgba(255,255,255,0.2); font-style:italic; padding:40px 0;">No signings recorded</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- AWARDS ROW -->
+        <div style="margin-bottom:24px;" class="reveal">
+            <div class="section-label">
+                <span style="font-family:'Orbitron',sans-serif; font-size:0.55rem; letter-spacing:0.4em; color:rgba(255,255,255,0.2); text-transform:uppercase; white-space:nowrap;">Draft Awards</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px;">
+
+                <!-- Smart Investor -->
+                <div class="glass-green glow-green" style="border-radius:4px; padding:24px; position:relative; overflow:hidden;">
+                    <div style="position:absolute; top:-20px; right:-20px; width:100px; height:100px; background:radial-gradient(circle,rgba(0,255,136,0.08),transparent); border-radius:50%;"></div>
+                    <div class="award-icon" style="background:rgba(0,255,136,0.1); border:1px solid rgba(0,255,136,0.2);">🧠</div>
+                    <p style="font-family:'Orbitron',sans-serif; font-size:0.5rem; letter-spacing:0.35em; color:var(--green); text-transform:uppercase; margin-bottom:8px;">Smart Investor</p>
+                    {% if biggest_steal %}
+                    <p style="font-family:'Barlow Condensed',sans-serif; font-size:1.4rem; font-weight:900; text-transform:uppercase; letter-spacing:0.05em; color:white; margin-bottom:4px;">{{ biggest_steal.highest_bidder }}</p>
+                    <p style="font-size:0.75rem; color:rgba(0,255,136,0.6);">
+                        Drafted <span style="font-weight:700; color:var(--green);">{{ biggest_steal.name }}</span> for <span style="font-family:'JetBrains Mono',monospace;">{{ biggest_steal.current_bid }}M</span>
+                    </p>
+                    {% else %}
+                    <p style="color:rgba(255,255,255,0.2); font-style:italic;">—</p>
+                    {% endif %}
+                </div>
+
+                <!-- The Heavyweight -->
+                <div class="glass glow-gold" style="border-radius:4px; padding:24px; position:relative; overflow:hidden;">
+                    <div style="position:absolute; top:-20px; right:-20px; width:100px; height:100px; background:radial-gradient(circle,rgba(212,175,55,0.08),transparent); border-radius:50%;"></div>
+                    <div class="award-icon" style="background:rgba(212,175,55,0.1); border:1px solid rgba(212,175,55,0.2);">💸</div>
+                    <p style="font-family:'Orbitron',sans-serif; font-size:0.5rem; letter-spacing:0.35em; color:var(--gold); text-transform:uppercase; margin-bottom:8px;">The Heavyweight</p>
+                    <p style="font-family:'Barlow Condensed',sans-serif; font-size:1.4rem; font-weight:900; text-transform:uppercase; letter-spacing:0.05em; color:white; margin-bottom:4px;">{{ big_spender.username }}</p>
+                    <p style="font-size:0.75rem; color:rgba(212,175,55,0.6);">
+                        Total Output: <span style="font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--gold);">{{ big_spender.spent }}M</span>
+                    </p>
+                </div>
+
+                <!-- Tactical Genius -->
+                <div class="glass-cyan glow-cyan" style="border-radius:4px; padding:24px; position:relative; overflow:hidden;">
+                    <div style="position:absolute; top:-20px; right:-20px; width:100px; height:100px; background:radial-gradient(circle,rgba(0,212,255,0.08),transparent); border-radius:50%;"></div>
+                    <div class="award-icon" style="background:rgba(0,212,255,0.1); border:1px solid rgba(0,212,255,0.2);">📋</div>
+                    <p style="font-family:'Orbitron',sans-serif; font-size:0.5rem; letter-spacing:0.35em; color:var(--cyan); text-transform:uppercase; margin-bottom:8px;">Tactical Genius</p>
+                    <p style="font-family:'Barlow Condensed',sans-serif; font-size:1.4rem; font-weight:900; text-transform:uppercase; letter-spacing:0.05em; color:white; margin-bottom:4px;">{{ tactical_genius.username }}</p>
+                    <p style="font-size:0.75rem; color:rgba(0,212,255,0.6);">
+                        Drafted <span style="font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--cyan);">{{ tactical_genius.won }}</span> players
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- FINAL STANDINGS -->
+        <div style="margin-bottom:64px;" class="reveal">
+            <div class="section-label">
+                <span style="font-family:'Orbitron',sans-serif; font-size:0.55rem; letter-spacing:0.4em; color:rgba(255,255,255,0.2); text-transform:uppercase; white-space:nowrap;">Final Manager Standings</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px;">
+                {% for t in teams %}
+                <div class="glass" style="border-radius:4px; overflow:hidden; position:relative;">
+                    <!-- rank accent bar -->
+                    <div style="position:absolute; left:0; top:0; bottom:0; width:3px; background:{% if loop.index == 1 %}linear-gradient(180deg,var(--gold),rgba(212,175,55,0.2)){% elif loop.index == 2 %}linear-gradient(180deg,#C0C0C0,rgba(192,192,192,0.1)){% elif loop.index == 3 %}linear-gradient(180deg,#CD7F32,rgba(205,127,50,0.1)){% else %}rgba(255,255,255,0.06){% endif %};"></div>
+                    
+                    <!-- Header -->
+                    <div style="padding:16px 20px 14px 24px; border-bottom:1px solid rgba(255,255,255,0.04); display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div class="team-rank-badge" style="background:{% if loop.index == 1 %}rgba(212,175,55,0.15){% elif loop.index == 2 %}rgba(192,192,192,0.1){% elif loop.index == 3 %}rgba(205,127,50,0.1){% else %}rgba(255,255,255,0.04){% endif %}; border:1px solid {% if loop.index == 1 %}rgba(212,175,55,0.3){% elif loop.index == 2 %}rgba(192,192,192,0.2){% elif loop.index == 3 %}rgba(205,127,50,0.2){% else %}rgba(255,255,255,0.08){% endif %}; color:{% if loop.index == 1 %}var(--gold){% elif loop.index == 2 %}#C0C0C0{% elif loop.index == 3 %}#CD7F32{% else %}rgba(255,255,255,0.3){% endif %};">
+                                {{ loop.index }}
+                            </div>
+                            <div>
+                                <p style="font-family:'Barlow Condensed',sans-serif; font-size:1rem; font-weight:900; text-transform:uppercase; letter-spacing:0.05em; color:white;">{{ t.username }}</p>
+                                <p style="font-family:'JetBrains Mono',monospace; font-size:0.6rem; color:rgba(255,255,255,0.25);">{{ t.won }} players · {{ t.spent }}M spent</p>
+                            </div>
+                        </div>
+                        <div style="text-align:right;">
+                            <p style="font-family:'JetBrains Mono',monospace; font-size:1.4rem; font-weight:700; color:{% if loop.index == 1 %}var(--gold){% else %}rgba(255,255,255,0.7){% endif %};">{{ t.avg_rating }}</p>
+                            <p style="font-size:0.6rem; color:rgba(255,255,255,0.2); text-transform:uppercase; letter-spacing:0.2em;">avg OVR</p>
+                        </div>
+                    </div>
+
+                    <!-- Budget Bar -->
+                    <div style="padding:10px 24px 12px;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                            <p style="font-family:'Barlow Condensed',sans-serif; font-size:0.6rem; letter-spacing:0.2em; color:rgba(255,255,255,0.2); text-transform:uppercase;">Budget Used</p>
+                            <p style="font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:rgba(255,255,255,0.35);">{{ t.budget }}M left</p>
+                        </div>
+                        <div class="stat-bar-track">
+                            <div class="stat-bar-fill" style="background:{% if loop.index == 1 %}linear-gradient(90deg,var(--gold),rgba(212,175,55,0.5)){% else %}linear-gradient(90deg,rgba(0,212,255,0.6),rgba(0,212,255,0.2)){% endif %}; width:{{ ((t.spent / (t.spent + t.budget + 0.01)) * 100)|round|int }}%;" data-target="{{ ((t.spent / (t.spent + t.budget + 0.01)) * 100)|round|int }}"></div>
+                        </div>
+                    </div>
+
+                    <!-- Squad list -->
+                    <div style="max-height:200px; overflow-y:auto; padding:0 20px 12px 24px;">
+                        {% for p in t.squad %}
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.03);">
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <span style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; font-weight:700; color:{% if p.rating >= 88 %}var(--gold){% elif p.rating >= 83 %}rgba(0,212,255,0.8){% else %}rgba(255,255,255,0.4){% endif %}; min-width:24px;">{{ p.rating }}</span>
+                                <span style="font-family:'Barlow Condensed',sans-serif; font-size:0.85rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; color:rgba(255,255,255,0.75);">{{ p.name }}</span>
+                            </div>
+                            <span style="font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:rgba(255,255,255,0.2);">{{ p.current_bid }}M</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- BOTTOM CTA -->
+        <div style="text-align:center; padding-bottom:60px;" class="reveal">
+            {% if session.get('role') == 'admin' %}
+            <button onclick="showAdminWarning()" style="font-family:'Orbitron',sans-serif; font-size:0.6rem; letter-spacing:0.3em; text-transform:uppercase; color:var(--red); background:rgba(255,0,60,0.06); border:1px solid rgba(255,0,60,0.3); padding:16px 48px; cursor:pointer; transition:all 0.4s ease;" onmouseover="this.style.background='rgba(255,0,60,0.15)'" onmouseout="this.style.background='rgba(255,0,60,0.06)'">
+                ⚡ Reset Draft & Restart ⚡
+            </button>
+            {% else %}
+            <a href="{{ url_for('auction') }}" style="font-family:'Orbitron',sans-serif; font-size:0.6rem; letter-spacing:0.3em; text-transform:uppercase; color:var(--gold); background:rgba(212,175,55,0.06); border:1px solid rgba(212,175,55,0.3); padding:16px 48px; text-decoration:none; display:inline-block; transition:all 0.4s ease;" onmouseover="this.style.background='rgba(212,175,55,0.15)'" onmouseout="this.style.background='rgba(212,175,55,0.06)'">
+                ← Return to Auction
+            </a>
+            {% endif %}
+        </div>
+
+    </div>
+
+    <script>
+        // ─── LOADING SCREEN ───
+        const loader = document.getElementById('globalLoader');
+        window.addEventListener('DOMContentLoaded', () => { loader.style.display = 'flex'; });
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                loader.classList.add('hidden');
+                setTimeout(() => loader.style.display = 'none', 900);
+                triggerConfetti();
+                startRevealAnimation();
+                animateCounters();
+                animateBars();
+            }, 1600);
+        });
+
+        function handleResetLoading() {
+            document.getElementById('adminModal').style.display = 'none';
+            loader.style.display = 'flex';
+            loader.classList.remove('hidden');
+            loader.querySelector('p').textContent = 'PURGING SYSTEM DATA...';
+            loader.querySelector('p').style.color = 'var(--red)';
+        }
+
+        function showAdminWarning() {
+            document.getElementById('adminModal').style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+        function closeAdminWarning() {
+            document.getElementById('adminModal').style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        // ─── REVEAL ANIMATIONS ───
+        function startRevealAnimation() {
+            const reveals = document.querySelectorAll('.reveal');
+            reveals.forEach((el, i) => {
+                setTimeout(() => el.classList.add('visible'), i * 200);
+            });
+        }
+
+        // ─── COUNTERS ───
+        function animateCounters() {
+            document.querySelectorAll('.counter').forEach(el => {
+                const target = parseFloat(el.dataset.target);
+                const duration = 1200;
+                const startTime = performance.now();
+                const update = (now) => {
+                    const progress = Math.min((now - startTime) / duration, 1);
+                    const eased = 1 - Math.pow(1 - progress, 3);
+                    el.textContent = Number.isInteger(target) 
+                        ? Math.round(eased * target)
+                        : (eased * target).toFixed(1);
+                    if (progress < 1) requestAnimationFrame(update);
+                };
+                requestAnimationFrame(update);
+            });
+        }
+
+        // ─── STAT BARS ───
+        function animateBars() {
+            setTimeout(() => {
+                document.querySelectorAll('.stat-bar-fill').forEach(bar => {
+                    bar.classList.add('animate');
+                });
+            }, 400);
+        }
+
+        // ─── PARTICLES ───
+        const container = document.getElementById('particles');
+        for (let i = 0; i < 30; i++) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            const size = Math.random() * 3 + 1;
+            p.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}vw;animation-duration:${Math.random()*12+6}s;animation-delay:${Math.random()*8}s;opacity:0.4;`;
+            container.appendChild(p);
+        }
+
+        // ─── CONFETTI ───
+        function triggerConfetti() {
+            const end = Date.now() + 3000;
+            const colors = ['#D4AF37', '#FCF6BA', '#FFFFFF', '#00D4FF'];
+            const interval = setInterval(() => {
+                if (Date.now() > end) return clearInterval(interval);
+                confetti({
+                    particleCount: 40,
+                    spread: 360,
+                    startVelocity: 25,
+                    ticks: 80,
+                    zIndex: 5,
+                    colors,
+                    origin: { x: Math.random(), y: Math.random() - 0.2 }
+                });
+            }, 300);
+        }
+    </script>
+</body>
+</html>

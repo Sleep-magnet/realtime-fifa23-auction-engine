@@ -1,0 +1,2600 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="referrer" content="no-referrer">
+
+    <title>FIFA Auction – Live Draft</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Barlow:wght@400;600;700;800&family=JetBrains+Mono:wght@700;800&display=swap"
+        rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <script>
+
+        tailwind.config = {
+
+            theme: {
+
+                extend: {
+
+                    fontFamily: { sans: ['Barlow', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+
+                    colors: { brand: { accent: 'var(--accent)', dark: '#04060D', card: '#0A0E1A' } }
+
+                }
+
+            }
+
+        }
+
+    </script>
+
+    <style>
+        /* ═══ DYNAMIC THEME SYSTEM ═══ */
+
+        :root {
+            --accent: #D4AF37;
+            --accent-glow: rgba(212, 175, 55, 0.4);
+        }
+
+
+
+        .theme-mythic {
+            --accent: #B026FF;
+            --accent-glow: rgba(176, 38, 255, 0.5);
+        }
+
+        .theme-mythic .holo-card {
+            box-shadow: 0 0 60px rgba(176, 38, 255, 0.6), inset 0 0 30px rgba(229, 228, 226, 0.3);
+            background: linear-gradient(to bottom, #1a0b2e, #04060D);
+            border-image: linear-gradient(45deg, #B026FF, #FF003C, #E5E4E2) 1;
+        }
+
+
+
+        .theme-gold {
+            --accent: #D4AF37;
+            --accent-glow: rgba(212, 175, 55, 0.4);
+        }
+
+        .theme-silver {
+            --accent: #C0C0C0;
+            --accent-glow: rgba(192, 192, 192, 0.4);
+        }
+
+        .theme-blue {
+            --accent: #0094FF;
+            --accent-glow: rgba(0, 148, 255, 0.4);
+        }
+
+
+
+        body {
+            background-color: #04060D;
+            font-family: 'Barlow', sans-serif;
+            overflow-x: hidden;
+            transition: background-color 0.5s ease;
+        }
+
+
+
+        /* HEX BG */
+
+        .hex-bg {
+            position: fixed;
+            inset: 0;
+            z-index: -3;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='104' viewBox='0 0 60 104'%3E%3Cpath d='M30 0 L60 17 L60 52 L30 69 L0 52 L0 17 Z' fill='none' stroke='rgba(212,175,55,0.03)' stroke-width='1'/%3E%3C/svg%3E");
+            background-size: 60px 104px;
+        }
+
+
+
+        /* BLOB BG */
+
+        .blob-bg {
+            position: fixed;
+            inset: 0;
+            z-index: -2;
+            pointer-events: none;
+        }
+
+        .blob-bg::before {
+            content: '';
+            position: absolute;
+            top: -20%;
+            left: -10%;
+            width: 60%;
+            height: 60%;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(212, 175, 55, 0.04) 0%, transparent 70%);
+        }
+
+        .blob-bg::after {
+            content: '';
+            position: absolute;
+            bottom: -10%;
+            right: -10%;
+            width: 50%;
+            height: 50%;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0, 148, 255, 0.03) 0%, transparent 70%);
+        }
+
+
+
+        /* SCANLINES */
+
+        .scanlines {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            pointer-events: none;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.02) 2px, rgba(0, 0, 0, 0.02) 4px);
+        }
+
+
+
+        .glass-panel {
+            background: rgba(10, 14, 26, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        .modal-bg {
+            background-color: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(12px);
+        }
+
+
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(212, 175, 55, 0.2);
+            border-radius: 99px;
+        }
+
+
+
+        /* BID FLASH */
+
+        @keyframes flashBid {
+            0% {
+                background-color: rgba(212, 175, 55, 0.12);
+                transform: scale(1.01);
+            }
+
+            100% {
+                background-color: transparent;
+                transform: scale(1);
+            }
+        }
+
+        .bid-flash {
+            animation: flashBid 0.4s ease-out;
+        }
+
+
+
+        .text-glow {
+            text-shadow: 0 0 20px var(--accent-glow);
+        }
+
+
+
+        /* HOLO CARD */
+
+        .holo-card {
+            transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
+            transform-style: preserve-3d;
+            box-shadow: 0 0 50px var(--accent-glow), 0 20px 60px rgba(0, 0, 0, 0.6);
+            border-color: var(--accent);
+        }
+
+        .holo-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(105deg, transparent 20%, rgba(255, 255, 255, 0.3) 25%, transparent 30%);
+            mix-blend-mode: overlay;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .holo-card:hover .holo-overlay {
+            opacity: 1;
+        }
+
+
+
+        /* ANIMATED ORBS */
+
+        @keyframes blob {
+            0% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            33% {
+                transform: translate(30px, -50px) scale(1.1);
+            }
+
+            66% {
+                transform: translate(-20px, 20px) scale(0.9);
+            }
+
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+        }
+
+        .animate-blob {
+            animation: blob 10s infinite;
+            background-color: var(--accent);
+        }
+
+
+
+        /* REACTION FLOAT */
+
+        @keyframes floatUp {
+            0% {
+                transform: translateY(10vh) scale(0.5);
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 1;
+                transform: translateY(-20vh) scale(1.5);
+            }
+
+            90% {
+                opacity: 1;
+                transform: translateY(-70vh) scale(1.5);
+            }
+
+            100% {
+                transform: translateY(-100vh) scale(1);
+                opacity: 0;
+            }
+        }
+
+        .reaction-float {
+            animation: floatUp 4s ease-out forwards;
+            position: fixed;
+            z-index: 99999;
+            pointer-events: none;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+
+
+        /* SUDDEN DEATH */
+
+        .sudden-death-active {
+            border: 3px solid red !important;
+            box-shadow: 0 0 60px rgba(220, 38, 38, 0.7) !important;
+            animation: pulseRed 1s infinite;
+        }
+
+        @keyframes pulseRed {
+            0% {
+                box-shadow: 0 0 30px rgba(220, 38, 38, 0.5);
+            }
+
+            50% {
+                box-shadow: 0 0 90px rgba(220, 38, 38, 0.95);
+            }
+
+            100% {
+                box-shadow: 0 0 30px rgba(220, 38, 38, 0.5);
+            }
+        }
+
+
+
+        /* DIM LIGHTS */
+
+        .dim-lights::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.88);
+            z-index: 40;
+            pointer-events: none;
+            animation: dimIn 1s forwards;
+        }
+
+        @keyframes dimIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+
+
+        /* WALKOUT */
+
+        @keyframes cardEntrance {
+            0% {
+                transform: translateY(100px) scale(0.7) rotateY(-90deg);
+                opacity: 0;
+            }
+
+            100% {
+                transform: translateY(0) scale(1) rotateY(0deg);
+                opacity: 1;
+            }
+        }
+
+        .card-enter {
+            animation: cardEntrance 1s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .text-pop {
+            animation: popText 1.5s ease-out forwards;
+        }
+
+        @keyframes popText {
+            0% {
+                transform: scale(0.5);
+                opacity: 0;
+            }
+
+            20% {
+                transform: scale(1.2);
+                opacity: 1;
+            }
+
+            80% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+        }
+
+
+
+        /* SEALED */
+
+        .theme-sealed {
+            --accent: #D4AF37;
+            --accent-glow: rgba(212, 175, 55, 0.4);
+            border-color: #D4AF37 !important;
+            background: linear-gradient(135deg, #111 0%, #000 100%) !important;
+        }
+
+
+
+        /* NAV */
+
+        .auction-nav {
+            background: rgba(4, 6, 13, 0.97);
+            border-bottom: 1px solid rgba(212, 175, 55, 0.1);
+            backdrop-filter: blur(24px);
+        }
+
+
+
+        /* ORBITRON HEADINGS */
+
+        .orb {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+
+
+        /* BUTTON STYLES */
+
+        .btn-accent {
+            background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, black));
+            color: #04060D;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: 0.06em;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.25s;
+            padding: 16px;
+            width: 100%;
+        }
+
+        .btn-accent:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .btn-accent:active {
+            transform: scale(0.97);
+        }
+
+        .btn-accent:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+
+
+        /* TIMER BAR */
+
+        #timer-bar {
+            transition: width 1s linear, background-color 0.5s;
+        }
+
+
+
+        /* STAT BARS */
+
+        [data-stat-width] {
+            transition: width 1.2s ease-out;
+        }
+
+
+
+        /* CORNER DECORATION */
+
+        .corner-dec {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            pointer-events: none;
+        }
+
+        .corner-dec.tl {
+            top: 0;
+            left: 0;
+            border-top: 2px solid var(--accent);
+            border-left: 2px solid var(--accent);
+            opacity: 0.4;
+        }
+
+        .corner-dec.tr {
+            top: 0;
+            right: 0;
+            border-top: 2px solid var(--accent);
+            border-right: 2px solid var(--accent);
+            opacity: 0.4;
+        }
+
+        .corner-dec.bl {
+            bottom: 0;
+            left: 0;
+            border-bottom: 2px solid var(--accent);
+            border-left: 2px solid var(--accent);
+            opacity: 0.4;
+        }
+
+        .corner-dec.br {
+            bottom: 0;
+            right: 0;
+            border-bottom: 2px solid var(--accent);
+            border-right: 2px solid var(--accent);
+            opacity: 0.4;
+        }
+    </style>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+
+<body id="body-theme" class="text-white min-h-screen theme-gold transition-colors duration-1000">
+
+
+
+    <!-- BACKGROUNDS -->
+
+    <div class="hex-bg"></div>
+
+    <div class="blob-bg"></div>
+
+    <div class="scanlines"></div>
+
+    <div class="fixed inset-0 z-[-2] pointer-events-none">
+
+        <div
+            class="absolute top-0 left-1/4 w-96 h-96 rounded-full mix-blend-screen filter blur-[150px] opacity-10 animate-blob">
+        </div>
+
+        <div class="absolute top-0 right-1/4 w-80 h-80 rounded-full mix-blend-screen filter blur-[150px] opacity-8 animate-blob"
+            style="animation-delay:3s;"></div>
+
+    </div>
+
+
+
+    <!-- AUDIO -->
+
+    <audio id="sfx-tick" src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3" preload="auto"></audio>
+
+    <audio id="sfx-bid" src="https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3" preload="auto"></audio>
+
+    <audio id="sfx-sold" src="https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3" preload="auto"></audio>
+
+    <audio id="sfx-crowd" src="https://assets.mixkit.co/active_storage/sfx/2004/2004-preview.mp3" loop
+        preload="auto"></audio>
+
+    <audio id="sfx-walkout-build" src="https://assets.mixkit.co/active_storage/sfx/2034/2034-preview.mp3"
+        preload="auto"></audio>
+
+    <audio id="sfx-walkout-drop" src="https://assets.mixkit.co/active_storage/sfx/3005/3005-preview.mp3"
+        preload="auto"></audio>
+
+
+
+    <!-- SUDDEN DEATH BANNER -->
+
+    <div id="sudden-death-banner"
+        class="hidden fixed top-6 left-1/2 transform -translate-x-1/2 bg-red-600 text-white font-black italic tracking-widest uppercase px-10 py-3 rounded-full shadow-[0_0_50px_rgba(220,38,38,0.9)] z-[100] text-2xl border-2 border-white orb">
+
+        ⚡ SUDDEN DEATH MODE ⚡
+
+    </div>
+
+
+
+    <!-- ERROR TOAST -->
+
+    <div id="error-toast"
+        class="fixed top-20 left-1/2 transform -translate-x-1/2 z-[100] bg-red-950 border border-red-500/50 text-white px-6 py-3 rounded-xl font-bold shadow-[0_0_30px_rgba(239,68,68,0.4)] transition-all duration-300 opacity-0 -translate-y-10 pointer-events-none flex items-center gap-2">
+
+        <span>⚠️</span> <span id="error-toast-msg">Insufficient Funds!</span>
+
+    </div>
+
+
+
+    <!-- WALKOUT OVERLAY -->
+
+    {% if player and player.rating >= 88 %}
+
+    <div id="walkout-overlay"
+        style="position:fixed;inset:0;z-index:2000;background:#000000;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:1;transition:opacity 1s ease;">
+
+        <!-- Cinematic bars -->
+
+        <div style="position:absolute;top:0;left:0;right:0;height:80px;background:#000;z-index:1;"></div>
+
+        <div style="position:absolute;bottom:0;left:0;right:0;height:80px;background:#000;z-index:1;"></div>
+
+        <!-- Laser scan line -->
+
+        <div id="walkout-laser"
+            style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0;box-shadow:0 0 20px var(--accent);animation:laserScan 1.5s ease-in-out infinite;z-index:3;">
+        </div>
+
+        <!-- Radial glow center -->
+
+        <div
+            style="position:absolute;inset:0;background:radial-gradient(ellipse at center, rgba(212,175,55,0.06) 0%, transparent 70%);pointer-events:none;z-index:2;">
+        </div>
+
+        <!-- Text layers -->
+
+        <div id="walkout-nation"
+            style="font-family:'Orbitron',sans-serif;font-size:clamp(3rem,10vw,7rem);font-weight:900;color:#ffffff;text-transform:uppercase;letter-spacing:0.5em;opacity:0;position:absolute;z-index:4;text-shadow:0 0 40px rgba(255,255,255,0.6);transition:none;">
+            {{ player.nation }}</div>
+
+        <div id="walkout-club"
+            style="font-family:'Orbitron',sans-serif;font-size:clamp(2.5rem,8vw,5.5rem);font-weight:900;color:#D4AF37;text-transform:uppercase;letter-spacing:0.4em;opacity:0;position:absolute;z-index:4;text-shadow:0 0 40px rgba(212,175,55,0.8);text-align:center;transition:none;">
+            {{ player.club }}</div>
+
+        <div id="walkout-pos"
+            style="font-family:'Orbitron',sans-serif;font-size:clamp(4rem,15vw,11rem);font-weight:900;color:var(--accent);text-transform:uppercase;letter-spacing:0.4em;opacity:0;position:absolute;z-index:4;text-shadow:0 0 60px var(--accent-glow);transition:none;">
+            {{ player.position }}</div>
+
+        <!-- Flash -->
+
+        <div id="walkout-flash"
+            style="position:absolute;inset:0;background:#ffffff;opacity:0;pointer-events:none;z-index:5;transition:opacity 0.15s;">
+        </div>
+
+    </div>
+
+    <style>
+        @keyframes laserScan {
+            0% {
+                top: 10%;
+                opacity: 0.8;
+            }
+
+            100% {
+                top: 90%;
+                opacity: 0.3;
+            }
+        }
+
+        @keyframes walkoutPop {
+            0% {
+                opacity: 0;
+                transform: scale(0.5) translateY(30px);
+                filter: blur(10px);
+            }
+
+            30% {
+                opacity: 1;
+                transform: scale(1.08) translateY(0);
+                filter: blur(0);
+            }
+
+            80% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(0.9) translateY(-20px);
+                filter: blur(4px);
+            }
+        }
+
+        .walkout-text-anim {
+            animation: walkoutPop 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    </style>
+
+    {% endif %}
+
+
+
+    <!-- NAV -->
+
+    <nav class="auction-nav p-4 flex justify-between items-center sticky top-0 z-40">
+
+        <div class="flex items-center gap-4 flex-wrap">
+
+            <h1 class="text-xl font-black tracking-wider orb">FIFA <span
+                    class="text-brand-accent transition-colors duration-500">DRAFT</span></h1>
+
+            <span id="status-badge"
+                class="bg-brand-accent/10 text-brand-accent transition-colors duration-500 text-xs px-3 py-1 rounded-full font-bold flex items-center gap-2 orb">
+
+                <span class="w-2 h-2 rounded-full bg-brand-accent animate-pulse"></span>
+
+                <span id="status-text">LIVE</span>
+
+            </span>
+
+            {% if session.get('role') == 'admin' %}
+
+            <span class="bg-yellow-500 text-black text-xs px-2 py-1 rounded-md font-black orb">ADMIN</span>
+
+            {% endif %}
+
+            <button id="audio-unlock-btn" onclick="unlockAudio()"
+                class="bg-red-700 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded-full font-bold shadow-[0_0_12px_rgba(239,68,68,0.5)] transition-all animate-pulse flex items-center gap-2 ml-2">
+
+                🔇 UNLOCK AUDIO
+
+            </button>
+
+        </div>
+
+        <div class="flex gap-2 flex-wrap justify-end">
+
+            <button onclick="openModal('leaderboard-modal')"
+                class="bg-brand-accent/10 hover:bg-brand-accent/20 border border-brand-accent/20 text-brand-accent px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors orb text-xs">🏆
+                Leaderboard</button>
+
+            <button onclick="openModal('history-modal')"
+                class="bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors text-white/60">📜
+                History</button>
+
+            <button onclick="openModal('teams-modal')"
+                class="bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors text-white/60">👥
+                Teams</button>
+
+            <a href="{{ url_for('my_team') }}"
+                class="bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors text-white/60">👕
+                My Squad</a>
+
+            <button onclick="openModal('trade-modal')"
+                class="bg-purple-900/30 hover:bg-purple-900/50 border border-purple-500/30 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors text-purple-300 relative">
+
+                🤝 Trade
+
+                <span id="trade-badge"
+                    class="hidden bg-red-500 text-white text-[10px] rounded-full w-5 h-5 flex items-center justify-center absolute -top-2 -right-2"></span>
+
+            </button>
+
+            <a href="{{ url_for('logout') }}"
+                class="bg-red-900/20 border border-red-500/20 hover:bg-red-900/40 px-4 py-2 rounded-lg font-bold text-sm text-red-400 transition-colors">Logout</a>
+
+        </div>
+
+    </nav>
+
+
+
+    <!-- MAIN GRID -->
+
+    <div class="max-w-[1400px] mx-auto mt-6 grid grid-cols-1 lg:grid-cols-12 gap-5 px-4 mb-20">
+
+
+
+        <!-- LEFT: PLAYER PANEL -->
+
+        <div class="lg:col-span-8 glass-panel rounded-2xl p-6 relative overflow-hidden shadow-2xl transition-colors duration-500 flex flex-col"
+            id="main-player-panel">
+
+            <div class="corner-dec tl"></div>
+            <div class="corner-dec tr"></div>
+
+            <div class="corner-dec bl"></div>
+            <div class="corner-dec br"></div>
+
+
+
+            {% if player %}
+
+            <div class="flex flex-col md:flex-row gap-8 mb-6">
+
+                <!-- PLAYER CARD -->
+
+                <div id="player-card-container"
+                    class="relative w-64 h-80 bg-gradient-to-b from-[#1e1a10] to-brand-dark rounded-xl border-2 p-2 shrink-0 flex items-end justify-center holo-card card-enter mx-auto md:mx-0">
+
+                    <div class="holo-overlay rounded-xl"></div>
+
+                    <div class="absolute -top-4 -right-4 bg-brand-dark text-brand-accent transition-colors duration-500 border-2 border-brand-accent rounded-full w-14 h-14 flex items-center justify-center font-black text-2xl z-10 shadow-lg orb"
+                        id="player-rating-val">{{ player.rating }}</div>
+
+                    <img src="{{ player.image if player.image else 'https://placehold.co/300x400/0A0E1A/ffffff?text=' + player.name.split(' ')[-1] }}"
+                        class="w-[90%] h-[90%] object-contain object-bottom drop-shadow-2xl pointer-events-none">
+
+                </div>
+
+
+
+                <!-- PLAYER INFO -->
+
+                <div class="flex-1 flex flex-col justify-center">
+
+                    <h2 class="text-5xl lg:text-6xl font-black uppercase mb-4 tracking-tight text-white">{{ player.name
+                        }}</h2>
+
+                    <div class="flex flex-wrap gap-3 mb-6">
+
+                        <span
+                            class="bg-brand-accent/10 border border-brand-accent/30 px-5 py-2 rounded-lg text-lg font-black text-brand-accent transition-colors duration-500 orb">{{
+                            player.position }}</span>
+
+                        <span
+                            class="bg-white/5 border border-white/10 px-5 py-2 rounded-lg text-lg font-bold text-white/70">{{
+                            player.club or 'Free Agent' }}</span>
+
+                        <span
+                            class="bg-white/5 border border-white/10 px-5 py-2 rounded-lg text-lg font-bold text-white/40">{{
+                            player.nation }}</span>
+
+                    </div>
+
+
+
+                    <!-- STATS -->
+
+                    <div
+                        class="grid grid-cols-3 lg:grid-cols-6 gap-3 text-center bg-black/40 p-4 rounded-xl border border-white/5">
+
+                        {% set main_stats = [('PAC', player.pac), ('SHO', player.sho), ('PAS', player.pas), ('DRI',
+                        player.dri), ('DEF', player.def), ('PHY', player.phy)] %}
+
+                        {% for label, val in main_stats %}
+
+                        <div class="flex flex-col items-center">
+
+                            <p class="text-xs text-white/30 font-black mb-1 orb">{{ label }}</p>
+
+                            <div class="w-full h-1.5 bg-white/8 rounded overflow-hidden mb-1">
+                                <div class="h-full bg-brand-accent transition-all duration-1000 ease-out"
+                                    style="width: 0%" data-stat-width="{{ (val/99)*100 }}%"></div>
+                            </div>
+
+                            <p class="text-2xl font-black text-white orb">{{ val or '--' }}</p>
+
+                        </div>
+
+                        {% endfor %}
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- ACTION FEED + YOUR STATUS (side by side) -->
+
+            <div class="mt-4 border-t border-white/5 pt-5">
+
+                <div class="flex gap-4">
+
+                    <!-- YOUR STATUS (moved here from right panel) -->
+
+                    <div class="glass-panel rounded-xl p-4 flex flex-col justify-center min-w-[160px]"
+                        id="your-status-left">
+
+                        <h3
+                            class="text-brand-accent font-black mb-3 flex items-center gap-2 transition-colors duration-500 orb text-xs uppercase tracking-widest">
+                            👤 Status</h3>
+
+                        <div class="bg-black/50 p-3 rounded-xl border border-white/5">
+
+                            <p class="text-xs text-white/30 tracking-wider font-black mb-1 orb">BUDGET</p>
+
+                            <p class="text-3xl font-mono font-black text-white"><span
+                                    class="text-brand-accent transition-colors duration-500 orb"
+                                    id="budget-display-left">{{ session.budget }}</span><span
+                                    class="text-sm text-white/30">M</span></p>
+
+                        </div>
+
+                    </div>
+
+                    <!-- FEED -->
+
+                    <div class="flex-1">
+
+                        <h4
+                            class="text-brand-accent font-black text-xs uppercase mb-3 tracking-widest flex items-center gap-2 transition-colors duration-500 orb">
+
+                            <span>📟</span> Live Action Feed
+
+                        </h4>
+
+                        <div id="action-feed"
+                            class="bg-black/50 border border-white/5 rounded-xl p-4 h-24 overflow-y-auto font-mono text-xs text-white/40 flex flex-col flex-col-reverse shadow-inner">
+
+                            <div class="text-white/20 italic text-center py-2">Waiting for action...</div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
+            {% else %}
+
+            <div class="h-[500px] flex flex-col items-center justify-center">
+
+                {% if remaining_players == 0 %}
+
+                <div class="text-6xl mb-4">🎉</div>
+
+                <h2 class="text-4xl font-black text-brand-accent uppercase tracking-widest text-glow orb">AUCTION
+                    COMPLETE!</h2>
+
+                {% else %}
+
+                <div class="w-16 h-16 border-4 border-white/10 border-t-brand-accent rounded-full animate-spin mb-6">
+                </div>
+
+                <h2 class="text-3xl font-black text-white/20 uppercase tracking-widest orb">Waiting for next player...
+                </h2>
+
+                {% endif %}
+
+            </div>
+
+            {% endif %}
+
+        </div>
+
+
+
+        <!-- RIGHT COLUMN -->
+
+        <div class="lg:col-span-4 space-y-3 relative z-50">
+
+
+
+            <!-- REACTIONS -->
+
+            <div class="glass-panel rounded-xl p-3 flex justify-between items-center">
+
+                <span class="text-xs text-white/20 font-black uppercase tracking-widest orb pl-1">Reactions</span>
+
+                <div class="flex gap-2 relative z-[9999]">
+
+                    <button onclick="sendReaction('🔥')"
+                        class="text-2xl hover:scale-125 transition-transform active:scale-90">🔥</button>
+
+                    <button onclick="sendReaction('🥶')"
+                        class="text-2xl hover:scale-125 transition-transform active:scale-90">🥶</button>
+
+                    <button onclick="sendReaction('🤡')"
+                        class="text-2xl hover:scale-125 transition-transform active:scale-90">🤡</button>
+
+                    <button onclick="sendReaction('🐐')"
+                        class="text-2xl hover:scale-125 transition-transform active:scale-90">🐐</button>
+
+                    <button onclick="sendReaction('💸')"
+                        class="text-2xl hover:scale-125 transition-transform active:scale-90">💸</button>
+
+                </div>
+
+            </div>
+
+
+
+
+
+
+
+            {% if player %}
+
+            <!-- STRATEGY INSIGHTS -->
+
+            <div class="glass-panel rounded-xl p-3 border border-white/5">
+
+                <div class="flex justify-between items-center cursor-pointer"
+                    onclick="document.getElementById('strat-content').classList.toggle('hidden')">
+
+                    <h4
+                        class="text-brand-accent font-black text-xs uppercase tracking-widest transition-colors duration-500 orb">
+                        📊 Strategy Insights</h4>
+
+                    <span class="text-white/30 text-xs">▼</span>
+
+                </div>
+
+                <div id="scarcity-alert"
+                    class="hidden bg-yellow-500/10 border border-yellow-500/40 text-yellow-400 text-[10px] font-black p-2 rounded mt-3 text-center uppercase tracking-wider animate-pulse orb">
+
+                    ⚠️ SCARCITY ALERT: <span id="stat-pos-rem-alert">0</span> left
+
+                </div>
+
+                <div id="strat-content" class="space-y-3 mt-4 hidden">
+
+                    <div class="flex justify-between text-sm"><span class="text-white/30">Active Bidders</span><span
+                            class="font-black orb text-xs" id="stat-bidders">0</span></div>
+
+                    <div class="flex justify-between text-sm"><span class="text-white/30">Pos Remaining</span><span
+                            class="font-black text-blue-400 orb text-xs" id="stat-pos-rem">0</span></div>
+
+                    <div class="flex justify-between text-sm"><span class="text-white/30">Demand Index</span><span
+                            class="font-black text-red-400 orb text-xs" id="stat-pos-dem">0</span></div>
+
+                    <div class="w-full bg-white/5 h-px my-2"></div>
+
+                    <div class="flex justify-between text-sm"><span class="text-white/30">Highest Budget</span><span
+                            class="font-mono text-green-400"><span id="stat-high-budg">0</span>M</span></div>
+
+                    <div class="flex justify-between text-sm"><span class="text-white/30">Avg Budget</span><span
+                            class="font-mono text-yellow-400"><span id="stat-avg-budg">0</span>M</span></div>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- BID PANEL -->
+
+            <div class="glass-panel rounded-xl p-4 border-t-4 border-t-brand-accent transition-all duration-500 {% if 'Lewandowski' in player.name %}theme-sealed{% endif %}"
+                id="bid-panel">
+
+                <div class="corner-dec tl"></div>
+                <div class="corner-dec tr"></div>
+
+                <div class="flex justify-between items-end mb-3">
+
+                    <div>
+
+                        <p class="text-xs text-white/30 tracking-wider font-black mb-1 uppercase orb" id="bid-title">{%
+                            if 'Lewandowski' in player.name %}🔒 SEALED ENVELOPE{% else %}Current Bid{% endif %}</p>
+
+                        <p class="text-4xl font-mono font-black text-white orb"><span id="live-bid">{% if 'Lewandowski'
+                                in player.name %}???{% else %}{{ player.current_bid }}{% endif %}</span>{% if
+                            'Lewandowski' not in player.name %}<span class="text-base text-white/30">M</span>{% endif %}
+                        </p>
+
+                        <p class="text-sm mt-1 text-white/30">By: <span id="live-bidder"
+                                class="font-black text-brand-accent bg-brand-accent/10 px-2 py-0.5 rounded transition-colors duration-500">{%
+                                if 'Lewandowski' in player.name %}CLASSIFIED{% else %}{{ player.highest_bidder or
+                                'Waiting' }}{% endif %}</span></p>
+
+                    </div>
+
+                    <div class="text-right">
+
+                        <p class="text-xs text-white/30 tracking-wider font-black mb-1 uppercase orb">Time Left</p>
+
+                        <p id="live-timer" class="text-4xl font-mono font-black text-white orb">--s</p>
+
+                    </div>
+
+                </div>
+
+
+
+                <div id="ai-commentator"
+                    class="text-[11px] font-bold text-white/30 italic mb-3 h-4 text-center transition-all opacity-80">
+                    Waiting for action...</div>
+
+
+
+                <div class="w-full bg-black/60 rounded-full h-2 mb-4 overflow-hidden border border-white/8 relative">
+
+                    <div id="timer-bar" class="bg-brand-accent h-full transition-all duration-1000 ease-linear"
+                        style="width: 100%"></div>
+
+                </div>
+
+
+
+                <form onsubmit="submitBid(event)">
+
+                    <div class="grid grid-cols-3 gap-2 mb-4">
+
+                        <button type="button" onclick="setBidAmount(1)"
+                            class="bid-btn bg-white/5 hover:bg-white/10 border border-white/10 text-white font-mono font-black py-3 rounded-lg transition-all text-sm">+1M</button>
+
+                        <button type="button" onclick="setBidAmount(10)"
+                            class="bid-btn bg-white/5 hover:bg-white/10 border border-white/10 text-white font-mono font-black py-3 rounded-lg transition-all text-sm">+10M</button>
+
+                        <button type="button" onclick="setBidAmount(50)"
+                            class="bid-btn bg-white/5 hover:bg-white/10 border border-white/10 text-white font-mono font-black py-3 rounded-lg transition-all text-sm">+50M</button>
+
+                    </div>
+
+                    <div class="flex gap-3">
+
+                        <input type="number" id="bid_amount" name="bid_amount"
+                            value="{{ 1 if player.current_bid == 0 else player.current_bid + 1 }}" min="1"
+                            class="bg-black/60 text-white text-xl font-black p-4 rounded-lg w-1/3 border border-white/10 focus:border-brand-accent outline-none font-mono transition-colors duration-500 text-center"
+                            required>
+
+                        <button type="submit" id="submit-bid" class="btn-accent flex-1">
+
+                            💰 {% if 'Lewandowski' in player.name %}LOCK IN BID{% else %}BID{% endif %}
+
+                        </button>
+
+                    </div>
+
+                </form>
+
+
+
+                <!-- LIVE STATUS -->
+
+                <div class="mt-4 bg-black/40 border border-white/5 rounded-xl p-4 text-xs">
+
+                    <p class="text-white/20 mb-2 uppercase tracking-widest font-black orb border-b border-white/5 pb-1">
+                        Live Status</p>
+
+                    <div class="flex justify-between mb-1">
+
+                        <span class="text-white/30">Bidders:</span>
+
+                        <span id="active-bidders-list" class="text-green-400 font-bold text-right">None</span>
+
+                    </div>
+
+                    <div class="flex justify-between">
+
+                        <span class="text-white/30">Folded:</span>
+
+                        <span id="folded-users-list" class="text-red-400 font-bold text-right">None</span>
+
+                    </div>
+
+                </div>
+
+
+
+                <div id="fold-container">
+
+                    <button type="button" id="fold-btn" onclick="submitFold()"
+                        class="mt-4 w-full block text-center bg-red-500/8 hover:bg-red-500/15 text-red-400 border border-red-500/25 font-bold py-3 rounded-lg transition-colors cursor-pointer">✋
+                        FOLD</button>
+
+                </div>
+
+            </div>
+
+            {% endif %}
+
+
+
+            <!-- ADMIN CONTROLS -->
+
+            {% if session.get('role') == 'admin' %}
+
+            <div class="glass-panel rounded-xl p-4 border border-yellow-500/20 bg-yellow-500/3">
+
+                <div class="flex justify-between items-center mb-4">
+
+                    <h3
+                        class="text-yellow-500 font-black text-xs uppercase tracking-widest flex items-center gap-2 orb">
+                        ⚡ Admin Controls</h3>
+
+                </div>
+
+                <div class="space-y-3">
+
+                    <div class="flex gap-2">
+
+                        {% if not player or player.auction_status not in ['live', 'paused'] %}
+
+                        <form action="{{ url_for('start_auction') }}" method="GET" class="flex flex-1 gap-2">
+
+                            <select name="pos"
+                                class="bg-black/60 text-white border border-white/15 rounded-lg px-2 font-bold outline-none focus:border-yellow-500 text-sm">
+
+                                <option value="ALL">Any Pos</option>
+                                <option value="ATT">Attack</option>
+                                <option value="MID">Midfield</option>
+                                <option value="DEF">Defense</option>
+                                <option value="GK">GK</option>
+
+                            </select>
+
+                            <button type="submit"
+                                class="flex-1 bg-blue-600/80 hover:bg-blue-600 text-white font-black py-3 rounded-lg text-center transition-colors text-sm">Random</button>
+
+                        </form>
+
+                        {% else %}
+
+                        <button disabled
+                            class="flex-1 bg-white/5 text-white/20 font-bold py-3 rounded-lg cursor-not-allowed text-sm">Random
+                            Player</button>
+
+                        {% endif %}
+
+                    </div>
+
+
+
+                    <div class="flex gap-2">
+
+                        {% if not player or player.auction_status not in ['live', 'paused'] %}
+
+                        <form action="{{ url_for('start_auction') }}" method="GET" class="flex flex-1 gap-2">
+
+                            <select name="player_id"
+                                class="bg-black/60 text-white border border-white/15 rounded-lg px-2 font-bold outline-none focus:border-yellow-500 flex-1 text-sm">
+
+                                <option value="">-- Sniper Pick --</option>
+
+                                {% for p in waiting_players %}
+
+                                <option value="{{ p.id }}">{{ p.name }} ({{ p.rating }} {{ p.position }})</option>
+
+                                {% endfor %}
+
+                            </select>
+
+                            <button type="submit"
+                                class="bg-yellow-600 hover:bg-yellow-500 text-black font-black py-3 px-4 rounded-lg transition-colors text-sm">Go</button>
+
+                        </form>
+
+                        {% else %}
+
+                        <button disabled
+                            class="flex-1 bg-white/5 text-white/20 font-bold py-3 rounded-lg cursor-not-allowed text-sm">Sniper
+                            Pick</button>
+
+                        {% endif %}
+
+                    </div>
+
+
+
+                    <div class="flex gap-2">
+
+                        {% if player and player.auction_status == 'live' %}
+
+                        <a href="{{ url_for('pause_auction') }}"
+                            class="flex-1 bg-orange-600/80 hover:bg-orange-500 text-white font-bold py-3 rounded-lg text-center transition-colors text-sm">⏸
+                            Pause</a>
+
+                        {% elif player and player.auction_status == 'paused' %}
+
+                        <a href="{{ url_for('resume_auction') }}"
+                            class="flex-1 bg-green-600/80 hover:bg-green-500 text-white font-bold py-3 rounded-lg text-center transition-colors text-sm">▶
+                            Resume</a>
+
+                        {% endif %}
+
+                    </div>
+
+
+
+                    <div class="flex gap-2">
+
+                        <a href="{{ url_for('admin_dashboard') }}"
+                            class="flex-1 text-center bg-white/5 hover:bg-white/8 border border-white/10 text-white font-bold py-3 rounded-lg transition-colors text-sm">⚙️
+                            Dashboard</a>
+
+                        <a href="{{ url_for('end_entire_auction') }}"
+                            onclick="return confirm('End Draft Night? This cannot be undone.');"
+                            class="bg-red-700/60 hover:bg-red-600 text-white text-xs font-black px-3 flex items-center justify-center rounded-lg transition-colors">🛑
+                            END</a>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            {% endif %}
+
+
+
+        </div>
+
+    </div>
+
+
+
+    <!-- MODALS -->
+
+    <div id="history-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center modal-bg hidden opacity-0 transition-opacity">
+
+        <div class="glass-panel w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl transform scale-90 transition-transform"
+            id="history-modal-content">
+
+            <div class="bg-black/50 p-4 flex justify-between items-center border-b border-white/8">
+
+                <h3 class="font-black text-lg text-white flex items-center gap-2 orb">📜 Auction History</h3>
+
+                <button onclick="closeModal('history-modal')"
+                    class="text-white/30 hover:text-white font-bold text-2xl">&times;</button>
+
+            </div>
+
+            <div class="p-6 max-h-[60vh] overflow-y-auto" id="history-content">Loading...</div>
+
+        </div>
+
+    </div>
+
+
+
+    <div id="leaderboard-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center modal-bg hidden opacity-0 transition-opacity">
+
+        <div class="glass-panel w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl transform scale-90 transition-transform"
+            id="leaderboard-modal-content">
+
+            <div class="bg-black/50 p-4 flex justify-between items-center border-b border-white/8">
+
+                <h3 class="font-black text-lg text-yellow-500 flex items-center gap-2 orb">🏆 Leaderboard</h3>
+
+                <button onclick="closeModal('leaderboard-modal')"
+                    class="text-white/30 hover:text-white font-bold text-2xl">&times;</button>
+
+            </div>
+
+            <div class="p-6 max-h-[60vh] overflow-y-auto" id="leaderboard-content">Loading...</div>
+
+        </div>
+
+    </div>
+
+
+
+    <div id="teams-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center modal-bg hidden opacity-0 transition-opacity">
+
+        <div class="glass-panel w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl transform scale-90 transition-transform"
+            id="teams-modal-content">
+
+            <div class="bg-black/50 p-4 flex justify-between items-center border-b border-white/8">
+
+                <h3 class="font-black text-lg flex items-center gap-2 orb">👥 All Teams</h3>
+
+                <button onclick="closeModal('teams-modal')"
+                    class="text-white/30 hover:text-white font-bold text-2xl">&times;</button>
+
+            </div>
+
+            <div class="p-6 max-h-[70vh] overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-6" id="teams-content">
+                Loading...</div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- SOLD MODAL -->
+
+    <div id="sold-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center modal-bg hidden opacity-0 transition-opacity duration-300">
+
+        <div class="glass-panel p-1 rounded-[2rem] shadow-[0_0_100px_rgba(212,175,55,0.25)] max-w-md w-full mx-4 transform scale-90 transition-transform duration-300 z-50 border border-brand-accent"
+            id="sold-modal-content">
+
+            <div
+                class="bg-gradient-to-br from-brand-dark to-[#1a1a0a] rounded-[1.9rem] p-10 text-center relative overflow-hidden">
+
+                <div class="absolute inset-0 bg-brand-accent/8 blur-2xl animate-pulse transition-colors duration-500">
+                </div>
+
+                <div class="relative z-10">
+
+                    <h1 id="popup-title"
+                        class="text-6xl font-black italic uppercase text-white mb-6 text-glow transform -rotate-3 orb">
+                        SOLD!</h1>
+
+                    <div class="flex items-center justify-center gap-3 mb-8">
+
+                        <span class="text-5xl">💰</span>
+
+                        <span id="popup-amount"
+                            class="text-7xl font-mono font-black text-brand-accent tracking-tighter transition-colors duration-500 orb">0M</span>
+
+                    </div>
+
+                    <div class="bg-black/60 rounded-xl p-4 inline-block px-10 border border-white/8">
+
+                        <p class="text-white/30 text-xs font-black uppercase tracking-widest mb-1 orb">to</p>
+
+                        <p id="popup-winner" class="text-2xl font-bold text-white">Winner</p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- TRADE MODAL -->
+
+    <div id="trade-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center modal-bg hidden opacity-0 transition-opacity">
+
+        <div class="glass-panel w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl transform scale-90 transition-transform"
+            id="trade-modal-content">
+
+            <div
+                class="bg-black/50 p-4 flex justify-between items-center border-b border-white/8 bg-gradient-to-r from-purple-900/30 to-transparent">
+
+                <h3 class="font-black text-lg flex items-center gap-2 text-white orb">🤝 Trade Center</h3>
+
+                <button onclick="closeModal('trade-modal')"
+                    class="text-white/30 hover:text-white font-bold text-2xl">&times;</button>
+
+            </div>
+
+            <div class="p-6">
+
+                <div class="flex border-b border-white/8 mb-4">
+
+                    <button onclick="switchTradeTab('propose')" id="tab-propose"
+                        class="flex-1 pb-2 border-b-2 border-purple-500 font-bold text-white">Propose Trade</button>
+
+                    <button onclick="switchTradeTab('incoming')" id="tab-incoming"
+                        class="flex-1 pb-2 border-b-2 border-transparent text-white/30 font-bold relative">Incoming
+                        <span id="incoming-count"
+                            class="hidden bg-red-500 text-white text-[10px] px-1.5 rounded-full absolute top-0 right-4"></span></button>
+
+                </div>
+
+                <div id="trade-propose-content">
+
+                    <label class="block text-white/30 text-sm font-bold mb-2">Select Trade Partner</label>
+
+                    <select id="trade-partner" onchange="loadTradePlayers()"
+                        class="w-full bg-black/60 border border-white/10 rounded-lg p-3 mb-4 outline-none focus:border-purple-500 font-bold text-white">
+
+                        <option value="">-- Choose User --</option>
+
+                        {% for user in users %}<option value="{{ user.id }}">{{ user.username }}</option>{% endfor %}
+
+                    </select>
+
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+
+                        <div class="bg-black/30 p-4 rounded-xl border border-white/5">
+
+                            <h4 class="text-green-400 font-black mb-3 text-sm orb">You Give</h4>
+
+                            <div class="mb-3">
+
+                                <label class="block text-white/30 text-xs font-bold mb-1 uppercase">Player</label>
+
+                                <select id="trade-offer-player"
+                                    class="w-full bg-black/60 border border-white/10 rounded p-2 outline-none focus:border-green-500 text-sm text-white">
+                                    <option value="">-- No Player --</option>
+                                </select>
+
+                            </div>
+
+                            <div>
+
+                                <label class="block text-white/30 text-xs font-bold mb-1 uppercase">Money</label>
+
+                                <input type="number" id="trade-offer-money"
+                                    class="w-full bg-black/60 border border-white/10 rounded p-2 outline-none focus:border-green-500 font-mono font-bold text-green-400"
+                                    placeholder="0M">
+
+                            </div>
+
+                        </div>
+
+                        <div class="bg-black/30 p-4 rounded-xl border border-white/5">
+
+                            <h4 class="text-red-400 font-black mb-3 text-sm orb">You Get</h4>
+
+                            <div class="mb-3">
+
+                                <label class="block text-white/30 text-xs font-bold mb-1 uppercase">Player</label>
+
+                                <select id="trade-request-player"
+                                    class="w-full bg-black/60 border border-white/10 rounded p-2 outline-none focus:border-red-500 text-sm text-white">
+                                    <option value="">-- Select Partner First --</option>
+                                </select>
+
+                            </div>
+
+                            <div>
+
+                                <label class="block text-white/30 text-xs font-bold mb-1 uppercase">Money</label>
+
+                                <input type="number" id="trade-request-money"
+                                    class="w-full bg-black/60 border border-white/10 rounded p-2 outline-none focus:border-red-500 font-mono font-bold text-red-400"
+                                    placeholder="0M">
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <button onclick="submitTrade()"
+                        class="w-full bg-purple-700 hover:bg-purple-600 text-white font-black py-4 rounded-xl transition-all active:scale-95 shadow-lg shadow-purple-900/30 orb">SEND
+                        OFFER</button>
+
+                </div>
+
+                <div id="trade-incoming-content" class="hidden space-y-3 max-h-[40vh] overflow-y-auto">Loading...</div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ═══ ALL ORIGINAL JAVASCRIPT BELOW — UNCHANGED ═══ -->
+
+    <script>
+
+        let audioInitialized = false;
+
+        const sfxTick = document.getElementById('sfx-tick');
+
+        const sfxBid = document.getElementById('sfx-bid');
+
+        const sfxSold = document.getElementById('sfx-sold');
+
+        const sfxCrowd = document.getElementById('sfx-crowd');
+
+        sfxTick.volume = 0.5;
+
+
+
+        // 🔥 WALKOUT ENGINE 🔥
+
+        let isWalkout = {% if player and player.rating >= 88 %}true{% else %} false{% endif %};
+
+        if (isWalkout && !sessionStorage.getItem('walkout_played_{{ player.id if player else 0 }}')) {
+
+            sessionStorage.setItem('walkout_played_{{ player.id if player else 0 }}', 'true');
+
+            const overlay = document.getElementById('walkout-overlay');
+
+            const nation = document.getElementById('walkout-nation');
+
+            const club = document.getElementById('walkout-club');
+
+            const pos = document.getElementById('walkout-pos');
+
+            const flash = document.getElementById('walkout-flash');
+
+
+
+            // Lock scroll while walkout plays
+
+            document.body.style.overflow = 'hidden';
+
+
+
+            if (audioInitialized) { document.getElementById('sfx-walkout-build').play().catch(e => { }); }
+
+
+
+            // NATION — appears at 0.5s
+
+            setTimeout(() => {
+
+                nation.classList.add('walkout-text-anim');
+
+                sfxTick.currentTime = 0; sfxTick.play().catch(e => { });
+
+            }, 500);
+
+
+
+            // CLUB — appears at 2.8s
+
+            setTimeout(() => {
+
+                club.classList.add('walkout-text-anim');
+
+                sfxTick.currentTime = 0; sfxTick.play().catch(e => { });
+
+            }, 2800);
+
+
+
+            // POSITION — appears at 5.0s
+
+            setTimeout(() => {
+
+                pos.classList.add('walkout-text-anim');
+
+                sfxTick.currentTime = 0; sfxTick.play().catch(e => { });
+
+            }, 5000);
+
+
+
+            // FLASH + sound drop at 7.0s
+
+            setTimeout(() => {
+
+                flash.style.opacity = '1';
+
+                if (audioInitialized) {
+
+                    document.getElementById('sfx-walkout-drop').play().catch(e => { });
+
+                    sfxCrowd.volume = 1.0;
+
+                    sfxCrowd.play().catch(e => { });
+
+                }
+
+                triggerCommentary("WHAT A WALKOUT!");
+
+            }, 7000);
+
+
+
+            // Flash fade 
+
+            setTimeout(() => { flash.style.opacity = '0'; }, 7200);
+
+
+
+            // Fade out overlay at 8.2s — black screen stays until NOW
+
+            setTimeout(() => {
+
+                overlay.style.opacity = '0';
+
+                document.body.style.overflow = '';
+
+            }, 8200);
+
+
+
+            // Remove overlay at 9.2s
+
+            setTimeout(() => {
+
+                overlay.remove();
+
+                isWalkout = false;
+
+            }, 9200);
+
+
+
+        } else if (document.getElementById('walkout-overlay')) {
+
+            document.getElementById('walkout-overlay').remove();
+
+            isWalkout = false;
+
+        }
+
+
+
+        let isSealedEnvelope = {% if player and 'Lewandowski' in player.name %}true{% else %} false{% endif %};
+
+
+
+        function logAction(html) {
+
+            const feed = document.getElementById('action-feed');
+
+            if (feed && feed.innerText.includes('Waiting for action')) feed.innerHTML = '';
+
+            const entry = document.createElement('div');
+
+            entry.innerHTML = `<span class="text-white/20">[${new Date().toLocaleTimeString().split(' ')[0]}]</span> ${html}`;
+
+            if (feed) { feed.prepend(entry); if (feed.children.length > 20) feed.removeChild(feed.lastChild); }
+
+        }
+
+
+
+        document.addEventListener('click', function unlockOnFirstClick() {
+
+            if (!audioInitialized) unlockAudio();
+
+        }, { once: true });
+
+
+
+        if (localStorage.getItem('audioUnlocked') === 'true') {
+
+            const btn = document.getElementById('audio-unlock-btn');
+
+            if (btn) btn.classList.add('hidden');
+
+        }
+
+
+
+        function unlockAudio() {
+
+            if (!audioInitialized) {
+
+                sfxCrowd.volume = 0.4;
+
+                sfxCrowd.play().catch(e => console.log("Audio blocked", e));
+
+                audioInitialized = true;
+
+                const btn = document.getElementById('audio-unlock-btn');
+
+                if (btn) btn.classList.add('hidden');
+
+                localStorage.setItem('audioUnlocked', 'true');
+
+                if ('speechSynthesis' in window) {
+
+                    let msg = new SpeechSynthesisUtterance("Audio Active.");
+
+                    msg.volume = 0; window.speechSynthesis.speak(msg);
+
+                }
+
+            }
+
+        }
+
+
+
+        function setCrowdIntensity(level) {
+
+            if (!audioInitialized) return;
+
+            const targets = [0.4, 0.7, 1.0];
+
+            sfxCrowd.volume = targets[level];
+
+        }
+
+
+
+        const cardContainer = document.getElementById('player-card-container');
+
+        if (cardContainer) {
+
+            cardContainer.addEventListener('mousemove', e => {
+
+                const rect = cardContainer.getBoundingClientRect();
+
+                const x = e.clientX - rect.left; const y = e.clientY - rect.top;
+
+                const centerX = rect.width / 2; const centerY = rect.height / 2;
+
+                const rotateX = ((y - centerY) / centerY) * -15;
+
+                const rotateY = ((x - centerX) / centerX) * 15;
+
+                cardContainer.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+
+            });
+
+            cardContainer.addEventListener('mouseleave', () => {
+
+                cardContainer.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg)`;
+
+            });
+
+            setTimeout(() => { document.querySelectorAll('[data-stat-width]').forEach(el => { el.style.width = el.getAttribute('data-stat-width'); }); }, 500);
+
+        }
+
+
+
+        const commentatorDiv = document.getElementById('ai-commentator');
+
+        let lastCommentTime = 0;
+
+        let lastCommentMsg = "";
+
+
+
+        function speakVoice(text) {
+
+            if (audioInitialized && 'speechSynthesis' in window) {
+
+                window.speechSynthesis.cancel();
+
+                const utterance = new SpeechSynthesisUtterance(text);
+
+                utterance.pitch = 1.1; utterance.rate = 1.2; utterance.volume = 1.0;
+
+                window.speechSynthesis.speak(utterance);
+
+            }
+
+        }
+
+
+
+        function triggerCommentary(msg) {
+
+            if (Date.now() - lastCommentTime < 3000 || msg === lastCommentMsg) return;
+
+            if (commentatorDiv) commentatorDiv.style.opacity = '0';
+
+            setTimeout(() => {
+
+                if (commentatorDiv) { commentatorDiv.innerText = `🎙️ "${msg}"`; commentatorDiv.style.opacity = '1'; }
+
+                speakVoice(msg);
+
+                lastCommentTime = Date.now();
+
+                lastCommentMsg = msg;
+
+            }, 300);
+
+        }
+
+
+
+        // 🔥 DYNAMIC RATING COLORS 🔥
+
+        const ratingEl = document.getElementById('player-rating-val');
+
+        if (ratingEl) {
+
+            const r = parseInt(ratingEl.innerText);
+
+            const b = document.getElementById('body-theme');
+
+            if (r >= 89) b.className = 'text-white min-h-screen theme-mythic transition-colors duration-1000';
+
+            else if (r >= 85) b.className = 'text-white min-h-screen theme-gold transition-colors duration-1000';
+
+            else if (r >= 83) b.className = 'text-white min-h-screen theme-silver transition-colors duration-1000';
+
+            else b.className = 'text-white min-h-screen theme-blue transition-colors duration-1000';
+
+        }
+
+
+
+        function sendReaction(emoji) { fetch('/react', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emoji }) }); }
+
+        function showFloatingReaction(emoji, user) {
+
+            logAction(`<span class="text-yellow-400 font-bold">${user}</span> reacted ${emoji}`);
+
+            const div = document.createElement('div'); div.className = 'reaction-float text-6xl font-bold text-glow z-[9999]';
+
+            div.style.left = (Math.random() * 60 + 20) + '%';
+
+            div.innerHTML = `<span>${emoji}</span><span class="text-[10px] bg-black/80 text-white px-2 py-0.5 rounded-full mt-1 border border-white/20">${user}</span>`;
+
+            document.body.appendChild(div); setTimeout(() => div.remove(), 4000);
+
+        }
+
+
+
+        function playBidSound() { sfxBid.currentTime = 0; sfxBid.play().catch(e => { }); }
+
+        function setBidAmount(amt) { document.getElementById('bid_amount').value = (parseInt(document.getElementById('live-bid').innerText) || 0) + amt; }
+
+
+
+        function showError(msg) {
+
+            const toast = document.getElementById('error-toast'); document.getElementById('error-toast-msg').innerText = msg;
+
+            toast.classList.remove('opacity-0', '-translate-y-10'); setTimeout(() => toast.classList.add('opacity-0', '-translate-y-10'), 3000);
+
+        }
+
+
+
+        function openModal(id) {
+
+            const m = document.getElementById(id); m.classList.remove('hidden');
+
+            setTimeout(() => { m.classList.remove('opacity-0'); document.getElementById(id + '-content')?.classList.remove('scale-90'); }, 10);
+
+            if (id === 'leaderboard-modal') fetchLeaderboard();
+
+            if (id === 'teams-modal') fetchTeams();
+
+            if (id === 'trade-modal') fetchTrades();
+
+            if (id === 'history-modal') fetchHistory();
+
+        }
+
+        function closeModal(id) {
+
+            const m = document.getElementById(id); m.classList.add('opacity-0'); document.getElementById(id + '-content')?.classList.add('scale-90');
+
+            setTimeout(() => m.classList.add('hidden'), 300);
+
+        }
+
+
+
+        function switchTradeTab(tab) {
+
+            document.getElementById('tab-propose').classList.toggle('border-purple-500', tab === 'propose'); document.getElementById('tab-propose').classList.toggle('text-white/30', tab !== 'propose');
+
+            document.getElementById('tab-incoming').classList.toggle('border-purple-500', tab === 'incoming'); document.getElementById('tab-incoming').classList.toggle('text-white/30', tab !== 'incoming');
+
+            document.getElementById('trade-propose-content').classList.toggle('hidden', tab !== 'propose'); document.getElementById('trade-incoming-content').classList.toggle('hidden', tab === 'propose');
+
+        }
+
+
+
+        function fetchHistory() {
+
+            fetch('/api/history').then(r => r.json()).then(data => {
+
+                document.getElementById('history-content').innerHTML = data.map(p => `
+
+                    <div class="flex justify-between items-center p-3 bg-black/40 rounded-lg mb-2 border border-white/5">
+
+                        <div class="flex items-center gap-3">
+
+                            <span class="text-yellow-500 font-black text-lg orb">${p.rating}</span>
+
+                            <span class="font-bold text-white uppercase">${p.name}</span>
+
+                            <span class="text-xs bg-white/8 px-1.5 rounded text-white/50">${p.position}</span>
+
+                        </div>
+
+                        ${p.is_sold ? `<div class="text-right"><span class="text-green-400 font-mono font-black text-lg">${p.current_bid}M</span><span class="text-xs text-white/30 block -mt-1">to ${p.highest_bidder}</span></div>` : `<span class="text-red-400 font-bold text-sm bg-red-500/8 px-2 py-1 rounded border border-red-500/20">UNSOLD</span>`}
+
+                    </div>`).join('');
+
+                if (data.length === 0) document.getElementById('history-content').innerHTML = '<p class="text-white/20 italic text-center py-4">No players processed yet.</p>';
+
+            });
+
+        }
+
+        function fetchLeaderboard() {
+
+            fetch('/api/leaderboard').then(r => r.json()).then(data => {
+
+                document.getElementById('leaderboard-content').innerHTML = data.map((u, i) => `
+
+                    <div class="flex justify-between items-center p-4 bg-black/40 rounded-lg mb-2 border border-white/5">
+
+                        <div class="flex items-center gap-4"><span class="text-2xl">${i == 0 ? '🥇' : i == 1 ? '🥈' : i == 2 ? '🥉' : (i + 1) + '.'}
+
+                        </span><span class="font-bold text-lg text-white">${u.username}</span></div>
+
+                        <div class="text-right"><p class="text-sm text-white/30">Budget: <span class="text-brand-accent transition-colors duration-500 font-mono font-bold">${u.budget}M</span></p><p class="text-xs font-bold text-white/50">${u.players_won} Players</p></div>
+
+                    </div>`).join('');
+
+            });
+
+        }
+
+        function fetchTeams() {
+
+            fetch('/api/teams').then(r => r.json()).then(data => {
+
+                document.getElementById('teams-content').innerHTML = data.map(t => `
+
+                    <div class="glass-panel rounded-xl overflow-hidden">
+
+                        <div class="bg-black/50 p-3 border-b border-white/5 flex justify-between items-center">
+
+                            <h4 class="font-bold text-lg text-white">${t.username}</h4><p class="text-sm font-bold text-brand-accent transition-colors duration-500">${t.players.length}/11</p>
+
+                        </div>
+
+                        <div class="p-3 space-y-2 max-h-64 overflow-y-auto">
+
+                            ${t.players.length ? t.players.map(p => `
+
+                                <div class="flex justify-between items-center bg-black/30 p-2 rounded border border-white/5">
+
+                                    <div class="flex items-center gap-2">
+
+                                        ${p.image ? `<img src="${p.image}" class="w-8 h-8 rounded-full object-cover bg-black">` : ''}
+
+                                        <span class="text-yellow-500 font-bold">${p.rating}</span>
+
+                                        <span class="font-bold text-sm text-white">${p.name}</span>
+
+                                        <span class="text-xs bg-white/8 px-1.5 rounded text-white/40">${p.position}</span>
+
+                                    </div>
+
+                                    <span class="text-green-400 font-mono text-sm font-bold">${p.current_bid}M</span>
+
+                                </div>`).join('') : '<p class="text-white/20 text-sm italic">No players yet.</p>'}
+
+                        </div>
+
+                    </div>`).join('');
+
+            });
+
+        }
+
+        function loadTradePlayers() {
+
+            const partnerId = document.getElementById('trade-partner').value;
+
+            const offerSelect = document.getElementById('trade-offer-player');
+
+            const reqSelect = document.getElementById('trade-request-player');
+
+            if (!partnerId) return;
+
+            fetch(`/api/trade_players/${partnerId}`).then(r => r.json()).then(data => {
+
+                reqSelect.innerHTML = '<option value="">-- No Player --</option>';
+
+                data.my_players.forEach(p => { offerSelect.innerHTML += `<option value="${p.id}">${p.name} (${p.rating} ${p.position})</option>`; });
+
+                data.partner_players.forEach(p => { reqSelect.innerHTML += `<option value="${p.id}">${p.name} (${p.rating} ${p.position})</option>`; });
+
+            });
+
+        }
+
+        function fetchTrades() {
+
+            fetch('/api/my_trades').then(r => r.json()).then(data => {
+
+                const count = data.length;
+
+                document.getElementById('trade-badge').innerText = count || '';
+
+                document.getElementById('trade-badge').classList.toggle('hidden', !count);
+
+                document.getElementById('incoming-count').innerText = count || '';
+
+                document.getElementById('incoming-count').classList.toggle('hidden', !count);
+
+                document.getElementById('trade-incoming-content').innerHTML = count ? data.map(t => `
+
+                    <div class="bg-black/40 p-4 rounded-xl border border-white/8 relative overflow-hidden">
+
+                        <div class="absolute top-0 left-0 w-1 h-full bg-purple-500"></div>
+
+                        <p class="font-bold mb-3"><span class="text-purple-400 uppercase tracking-wide">${t.proposer_name}</span> proposed a trade:</p>
+
+                        <div class="flex flex-col md:flex-row gap-4 mb-4">
+
+                            <div class="flex-1 bg-black/30 p-3 rounded-lg border border-white/5">
+
+                                <p class="text-[10px] text-white/30 font-bold uppercase mb-1">They Give You:</p>
+
+                                ${t.off_name ? `<p class="font-bold text-sm mb-1 text-white">👤 ${t.off_name} <span class="text-yellow-500 text-xs ml-1">${t.off_rating}</span></p>` : ''}
+
+                                ${t.money_offer > 0 ? `<p class="font-mono font-bold text-green-400">💰 ${t.money_offer}M</p>` : ''}
+
+                                ${!t.off_name && t.money_offer == 0 ? '<p class="text-white/20 text-xs italic">Nothing</p>' : ''}
+
+                            </div>
+
+                            <div class="flex-1 bg-black/30 p-3 rounded-lg border border-white/5">
+
+                                <p class="text-[10px] text-white/30 font-bold uppercase mb-1">You Give Them:</p>
+
+                                ${t.req_name ? `<p class="font-bold text-sm mb-1 text-white">👤 ${t.req_name} <span class="text-yellow-500 text-xs ml-1">${t.req_rating}</span></p>` : ''}
+
+                                ${t.money_request > 0 ? `<p class="font-mono font-bold text-red-400">💰 ${t.money_request}M</p>` : ''}
+
+                                ${!t.req_name && t.money_request == 0 ? '<p class="text-white/20 text-xs italic">Nothing</p>' : ''}
+
+                            </div>
+
+                        </div>
+
+                        <div class="flex gap-2">
+
+                            <button onclick="respondTrade(${t.id}, 'accept')" class="flex-1 bg-green-700 hover:bg-green-600 text-white font-bold py-2 rounded-lg transition-colors">ACCEPT</button>
+
+                            <button onclick="respondTrade(${t.id}, 'reject')" class="flex-1 bg-red-900/40 hover:bg-red-800 text-red-300 font-bold py-2 rounded-lg transition-colors border border-red-500/20">REJECT</button>
+
+                        </div>
+
+                    </div>`).join('') : '<p class="text-center text-white/20 py-8 font-bold italic">No pending offers right now.</p>';
+
+            });
+
+        }
+
+        function submitTrade() {
+
+            const partnerId = document.getElementById('trade-partner').value;
+
+            const offerMoney = document.getElementById('trade-offer-money').value || 0;
+
+            const requestMoney = document.getElementById('trade-request-money').value || 0;
+
+            const offerPlayer = document.getElementById('trade-offer-player').value || null;
+
+            const requestPlayer = document.getElementById('trade-request-player').value || null;
+
+            if (!partnerId) return alert("Please select a partner!");
+
+            fetch('/trade/propose', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ receiver_id: partnerId, money_offer: offerMoney, money_request: requestMoney, offered_player_id: offerPlayer, requested_player_id: requestPlayer }) })
+
+                .then(r => r.json()).then(d => { if (d.success) { alert("Offer Sent!"); closeModal('trade-modal'); } else { alert(d.error); } });
+
+        }
+
+        function respondTrade(id, action) {
+
+            if (!confirm(`Are you sure you want to ${action.toUpperCase()} this trade?`)) return;
+
+            fetch(`/trade/respond/${id}/${action}`, { method: 'POST' }).then(r => r.json()).then(d => { if (d.success) fetchTrades(); else alert(d.error); });
+
+        }
+
+        setInterval(fetchTrades, 5000);
+
+
+
+        // 🔥 BIDDING & FOLD ENGINE 🔥
+
+        function submitBid(e) {
+
+            e.preventDefault();
+
+            const amt = document.getElementById('bid_amount').value;
+
+            const submitBtn = document.getElementById('submit-bid');
+
+            if (submitBtn) submitBtn.disabled = true;
+
+            fetch('/place_bid', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'bid_amount=' + amt })
+
+                .then(r => r.json()).then(data => {
+
+                    if (data.error) { showError(data.error); if (submitBtn && !userHasFolded) submitBtn.disabled = false; }
+
+                    else if (data.sealed) {
+
+                        playBidSound();
+
+                        submitBtn.innerText = "✅ BID LOCKED";
+
+                        submitBtn.classList.replace("bg-brand-accent", "bg-green-600");
+
+                        if (submitBtn) submitBtn.disabled = false;
+
+                    }
+
+                }).catch(err => { showError("Network error."); if (submitBtn && !userHasFolded) submitBtn.disabled = false; });
+
+        }
+
+
+
+        let userHasFolded = {{ 'true' if has_folded else 'false' }};
+
+
+
+        function submitFold() {
+
+            const foldBtn = document.getElementById('fold-btn');
+
+            if (foldBtn) { foldBtn.disabled = true; foldBtn.innerText = "Folding..."; }
+
+            fetch('/fold', { method: 'POST' }).then(r => r.json()).then(data => {
+
+                if (data.success) {
+
+                    userHasFolded = true;
+
+                    const container = document.getElementById('fold-container');
+
+                    if (container) { container.innerHTML = '<button type="button" disabled class="mt-4 w-full block text-center bg-white/5 text-white/20 border border-white/10 font-bold py-3 rounded-lg cursor-not-allowed">⛔ YOU FOLDED</button>'; }
+
+                    logAction(`<span class="text-red-400 font-bold">You folded.</span>`);
+
+                } else if (data.error) {
+
+                    showError(data.error);
+
+                    if (foldBtn) { foldBtn.disabled = false; foldBtn.innerText = "✋ FOLD"; }
+
+                }
+
+            }).catch(err => { showError("Network error."); if (foldBtn) { foldBtn.disabled = false; foldBtn.innerText = "✋ FOLD"; } });
+
+        }
+
+
+
+        let currentPlayerId = {% if player %}{ { player.id } } {% else %} null{% endif %};
+
+        let isShowingPopup = false;
+
+        let lastKnownBid = {% if player %}{ { player.current_bid } } {% else %} 0{% endif %};
+
+        let lastKnownTime = 35;
+
+        let lastReactionTime = 0;
+
+        let suddenDeathActive = false;
+
+        let knownFolds = [];
+
+        let knownBidders = [];
+
+
+
+        const socket = io();
+        socket.on('connect', () => {
+            console.log('Connected to WebSocket');
+            socket.emit('join');
+        });
+
+        socket.on('auction_update', (data) => {
+            if (isShowingPopup || isWalkout) return;
+
+            if (data.reaction) {
+
+                let parts = data.reaction.split('|');
+
+                let emoji = parts[0], timestamp = parseInt(parts[1]), user = parts[2];
+
+                if (timestamp > lastReactionTime && (Date.now() - timestamp < 10000)) {
+
+                    if (lastReactionTime !== 0) showFloatingReaction(emoji, user);
+
+                    lastReactionTime = timestamp;
+
+                } else if (lastReactionTime === 0) { lastReactionTime = timestamp; }
+
+            }
+
+
+
+            if (data.status === 'global_end') { window.location.href = "/summary"; return; }
+
+            if (data.status === 'waiting' && currentPlayerId !== null) { window.location.reload(); return; }
+
+            if ((data.status === 'live' || data.status === 'paused') && data.player_id != currentPlayerId) { window.location.reload(); return; }
+
+
+
+            if (data.status === 'ended') { isShowingPopup = true; showWinnerModal(data.sold_to, data.amount, data.rating, data.club_name, data.anthem_url); return; }
+
+            if (data.status === 'skipped') { window.location.reload(); return; }
+
+
+
+            if (data.status === 'live' || data.status === 'paused') {
+
+                document.getElementById('stat-bidders').innerText = data.active_bidders;
+
+                document.getElementById('stat-pos-rem').innerText = data.pos_remaining;
+
+                document.getElementById('stat-pos-rem-alert').innerText = data.pos_remaining;
+
+                document.getElementById('stat-pos-dem').innerText = data.pos_demand;
+
+                document.getElementById('stat-high-budg').innerText = data.highest_budget;
+
+                document.getElementById('stat-avg-budg').innerText = data.avg_budget;
+
+
+
+                if (data.scarcity_alert) { document.getElementById('scarcity-alert').classList.remove('hidden'); }
+
+
+
+                if (data.folded_users) { document.getElementById('folded-users-list').innerText = data.folded_users.length > 0 ? data.folded_users.join(', ') : 'None'; }
+
+                if (data.active_bidders_list) { document.getElementById('active-bidders-list').innerText = data.active_bidders_list.length > 0 ? (isSealedEnvelope ? "CLASSIFIED" : data.active_bidders_list.join(', ')) : 'None'; }
+
+
+
+                if (isSealedEnvelope) {
+
+                    if (data.active_bidders_list && data.active_bidders_list.length > knownBidders.length) {
+
+                        data.active_bidders_list.forEach(user => {
+
+                            if (!knownBidders.includes(user)) { knownBidders.push(user); logAction(`<span class="text-purple-400 font-bold">🛡️ A Manager locked in a secret bid...</span>`); }
+
+                        });
+
+                    }
+
+                } else {
+
+                    if (data.current_bid > lastKnownBid) {
+
+                        playBidSound();
+
+                        const displayArea = document.getElementById('bid-panel');
+
+                        if (displayArea) { displayArea.classList.remove('bid-flash'); void displayArea.offsetWidth; displayArea.classList.add('bid-flash'); }
+
+                        logAction(`<span class="font-bold text-white">${data.player_name}</span> - <span class="text-brand-accent">${data.highest_bidder}</span> bid <span class="text-green-400 font-bold">${data.current_bid}M</span>`);
+
+                        if (data.current_bid - lastKnownBid > 20) triggerCommentary("MASSIVE BID JUMP DEPLOYED!");
+
+                        else if (data.time_left < 5) triggerCommentary("LATE SNIPER MOVE!");
+
+                        else if (data.bid_count > 5) triggerCommentary("INTENSE BIDDING WAR!");
+
+                        lastKnownBid = data.current_bid;
+
+                    }
+
+                }
+
+
+
+                if (data.folded_users && data.folded_users.length > 0) {
+
+                    data.folded_users.forEach(username => {
+
+                        if (!knownFolds.includes(username)) {
+
+                            knownFolds.push(username);
+
+                            logAction(`<span class="font-bold text-white">${data.player_name}</span> - <span class="text-red-400 font-bold">${username}</span> folded ✋`);
+
+                        }
+
+                    });
+
+                }
+
+
+
+                if (data.sudden_death == 1 && !suddenDeathActive && !isSealedEnvelope) {
+
+                    suddenDeathActive = true;
+
+                    document.getElementById('main-player-panel').classList.add('sudden-death-active');
+
+                    document.getElementById('sudden-death-banner').classList.remove('hidden');
+
+                    triggerCommentary("SUDDEN DEATH MODE ACTIVATED!");
+
+                    setCrowdIntensity(2);
+
+                    logAction(`<span class="text-red-500 font-black">⚡ SUDDEN DEATH TRIGGERED ⚡</span>`);
+
+                }
+
+
+
+                if (!isSealedEnvelope) {
+
+                    document.getElementById('live-bid').innerText = data.current_bid;
+
+                    document.getElementById('live-bidder').innerText = data.highest_bidder || 'Waiting';
+
+                    const minBid = data.current_bid === 0 ? 1 : data.current_bid + 1;
+
+                    document.getElementById('bid_amount').min = minBid;
+
+                    if (parseInt(document.getElementById('bid_amount').value) < minBid && !userHasFolded) { document.getElementById('bid_amount').value = minBid; }
+
+                }
+
+
+
+                const timerBar = document.getElementById('timer-bar');
+
+                document.getElementById('live-timer').innerText = data.time_left + 's';
+
+                timerBar.style.width = Math.max(0, (data.time_left / (data.sudden_death == 1 ? 5 : 35)) * 100) + '%';
+
+
+
+                const isPaused = data.status === 'paused';
+
+                const isWinning = (!isSealedEnvelope && data.highest_bidder === "{{ session.username }}");
+
+                const disableBidding = isPaused || isWinning || userHasFolded;
+
+
+
+                document.getElementById('status-text').innerText = isPaused ? "PAUSED" : "LIVE";
+
+                document.getElementById('status-badge').classList.toggle('bg-brand-accent/10', !isPaused);
+
+                document.getElementById('status-badge').classList.toggle('text-brand-accent', !isPaused);
+
+                document.getElementById('status-badge').classList.toggle('bg-orange-500/20', isPaused);
+
+                document.getElementById('status-badge').classList.toggle('text-orange-400', isPaused);
+
+
+
+                if (!isSealedEnvelope) {
+
+                    document.getElementById('bid-panel').classList.toggle('border-t-brand-accent', !isPaused);
+
+                    document.getElementById('bid-panel').classList.toggle('border-t-orange-500', isPaused);
+
+                }
+
+
+
+                if (!isPaused && data.time_left <= 5 && data.time_left < lastKnownTime) {
+
+                    sfxTick.currentTime = 0; sfxTick.play().catch(e => { });
+
+                    if (!suddenDeathActive) setCrowdIntensity(1);
+
+                    if (data.time_left == 3 && !suddenDeathActive) { speakVoice("Going once"); logAction(`<span class="text-yellow-400">Going once...</span>`); }
+
+                    if (data.time_left == 1 && !suddenDeathActive) { speakVoice("Going twice"); logAction(`<span class="text-orange-400">Going twice...</span>`); }
+
+                }
+
+                lastKnownTime = data.time_left;
+
+
+
+                timerBar.classList.toggle('bg-brand-accent', !isPaused && data.time_left > 5);
+
+                timerBar.classList.toggle('bg-orange-500', isPaused);
+
+                timerBar.classList.toggle('bg-red-500', !isPaused && data.time_left <= 5);
+
+
+
+                const submitBtn = document.getElementById('submit-bid');
+
+                const foldBtn = document.getElementById('fold-btn');
+
+
+
+                if (submitBtn) {
+
+                    if (!isSealedEnvelope || (isSealedEnvelope && submitBtn.innerText !== "✅ BID LOCKED")) {
+
+                        submitBtn.disabled = disableBidding;
+
+                    }
+
+                    if (userHasFolded) {
+
+                        submitBtn.innerText = "⛔ FOLDED";
+
+                        submitBtn.className = "bg-white/5 text-white/20 font-black text-xl py-4 rounded-lg flex-1 transition-transform opacity-50 cursor-not-allowed orb";
+
+                    } else if (isPaused) {
+
+                        submitBtn.innerText = "PAUSED";
+
+                        submitBtn.className = "bg-white/10 text-white/30 font-black text-xl py-4 rounded-lg flex-1 transition-transform opacity-50 cursor-not-allowed orb";
+
+                    } else if (isWinning) {
+
+                        submitBtn.innerText = "👑 WINNING!";
+
+                        submitBtn.className = "bg-yellow-500 text-brand-dark font-black text-xl py-4 rounded-lg flex-1 shadow-lg shadow-yellow-500/20 transition-transform opacity-50 cursor-not-allowed orb";
+
+                    } else if (!isSealedEnvelope) {
+
+                        submitBtn.innerText = "💰 BID";
+
+                        submitBtn.className = "btn-accent flex-1";
+
+                    }
+
+                }
+
+
+
+                if (foldBtn) {
+
+                    if (isWinning) {
+
+                        foldBtn.disabled = true;
+
+                        foldBtn.className = "mt-4 w-full block text-center bg-white/5 text-white/20 border border-white/10 font-bold py-3 rounded-lg cursor-not-allowed";
+
+                        foldBtn.innerText = "🛑 CANNOT FOLD (WINNING)";
+
+                    } else if (userHasFolded) {
+
+                        foldBtn.disabled = true;
+
+                        foldBtn.className = "mt-4 w-full block text-center bg-white/5 text-white/20 border border-white/10 font-bold py-3 rounded-lg cursor-not-allowed";
+
+                        foldBtn.innerText = "⛔ YOU FOLDED";
+
+                    } else {
+
+                        foldBtn.disabled = false;
+
+                        foldBtn.className = "mt-4 w-full block text-center bg-red-500/8 hover:bg-red-500/15 text-red-400 border border-red-500/25 font-bold py-3 rounded-lg transition-colors cursor-pointer";
+
+                        foldBtn.innerText = "✋ FOLD";
+
+                    }
+
+                }
+
+                if (!isSealedEnvelope) { document.querySelectorAll('.bid-btn').forEach(b => b.disabled = disableBidding); }
+
+            }
+
+        });
+
+
+
+        setInterval(() => {
+            if (isShowingPopup || isWalkout) return;
+            const timerEl = document.getElementById('live-timer');
+            const statusEl = document.getElementById('status-text');
+            if (timerEl && statusEl && statusEl.innerText !== "PAUSED" && timerEl.innerText.includes('s')) {
+                let current = parseInt(timerEl.innerText) - 1;
+                if (current > 0) {
+                    timerEl.innerText = current + 's';
+                    const timerBar = document.getElementById('timer-bar');
+                    if (timerBar) {
+                        timerBar.style.width = Math.max(0, (current / (suddenDeathActive ? 5 : 35)) * 100) + '%';
+                        if (current <= 5) {
+                            timerBar.classList.remove('bg-brand-accent');
+                            timerBar.classList.add('bg-red-500');
+                            sfxTick.currentTime = 0; sfxTick.play().catch(e => { });
+                            if (current == 3 && !suddenDeathActive) { speakVoice("Going once"); logAction(`<span class="text-yellow-400">Going once...</span>`); }
+                            if (current == 1 && !suddenDeathActive) { speakVoice("Going twice"); logAction(`<span class="text-orange-400">Going twice...</span>`); }
+                        }
+                    }
+                } else if (current === 0) {
+                    timerEl.innerText = '0s';
+                    socket.emit('check_time_up');
+                }
+            }
+        }, 1000);
+
+        function showWinnerModal(winner, amount, rating, clubName, anthemUrl) {
+
+            setCrowdIntensity(0);
+
+            const modal = document.getElementById('sold-modal');
+
+            if (!winner) {
+
+                document.getElementById('popup-title').innerText = "UNSOLD";
+
+                document.getElementById('popup-title').classList.replace('text-glow', 'text-white/30');
+
+                document.getElementById('popup-winner').innerText = "No One";
+
+                document.getElementById('popup-amount').innerText = "0M";
+
+                speakVoice("Player unsold.");
+
+                sfxSold.play().catch(e => { });
+
+            } else {
+
+                document.getElementById('popup-winner').innerText = `${winner} (${clubName})`;
+
+                document.getElementById('popup-amount').innerText = amount + "M";
+
+                if (rating >= 88 && anthemUrl) {
+
+                    document.getElementById('body-theme').classList.add('dim-lights');
+
+                    const currentAnthem = new Audio(anthemUrl);
+
+                    currentAnthem.volume = 1.0;
+
+                    currentAnthem.play().catch(() => sfxSold.play());
+
+                    speakVoice(`Sold to ${clubName}!`);
+
+                } else {
+
+                    sfxSold.play().catch(e => { });
+
+                    speakVoice(`Sold to ${winner} for ${amount} million!`);
+
+                }
+
+            }
+
+            modal.classList.remove('hidden');
+
+            setTimeout(() => { modal.classList.remove('opacity-0'); document.getElementById('sold-modal-content').classList.remove('scale-90'); }, 10);
+
+            if (winner) { confetti({ particleCount: 250, spread: 100, origin: { y: 0.6 }, colors: ['#D4AF37', '#FFD700', '#ffffff', '#00FF88'] }); }
+
+            setTimeout(() => window.location.reload(true), 6000);
+
+        }
+    </script>
+</body>
+
+</html>
