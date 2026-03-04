@@ -404,11 +404,22 @@ def forgot_password():
         email = request.form.get("email", "").strip()
         username = request.form.get("username", "").strip()
         conn = get_master_connection(); cur = conn.cursor()
-        user = cur.execute("SELECT password FROM global_users WHERE email=? AND username=?", (email, username)).fetchone()
-        conn.close()
+        user = cur.execute("SELECT id FROM global_users WHERE email=? AND username=?", (email, username)).fetchone()
+        
         if user:
-            return render_template("forgot_password.html", recovered_password=user['password'])
+            token = uuid.uuid4().hex
+            expiry = int(time.time()) + 3600
+            cur.execute("UPDATE global_users SET reset_token=?, reset_token_expiry=? WHERE id=?", (token, expiry, user['id']))
+            conn.commit()
+            
+            if send_reset_email(email, token):
+                conn.close()
+                return render_template("forgot_password.html", message="A password reset link has been sent to your email.")
+            else:
+                conn.close()
+                return render_template("forgot_password.html", error="Failed to send reset email. Please check server configuration.")
         else:
+            conn.close()
             return render_template("forgot_password.html", error="No matching account found for that username and email.")
     return render_template("forgot_password.html")
 
