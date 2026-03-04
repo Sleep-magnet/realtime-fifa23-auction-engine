@@ -359,7 +359,7 @@ def register():
             conn.execute("INSERT INTO global_users (username, password, email, role) VALUES (?, ?, ?, ?)", (request.form["username"].strip(), request.form["password"], email, role))
             conn.commit()
         except sqlite3.IntegrityError:
-            conn.close(); return render_template("register.html", error="Username or Email already taken!")
+            conn.close(); return render_template("register.html", error="Username or Email already taken!", user_exists=True)
         conn.close(); return redirect(url_for("login"))
     return render_template("register.html")
 
@@ -402,16 +402,14 @@ def send_reset_email(to_email, token):
 def forgot_password():
     if request.method == "POST":
         email = request.form.get("email", "").strip()
+        username = request.form.get("username", "").strip()
         conn = get_master_connection(); cur = conn.cursor()
-        user = cur.execute("SELECT id FROM global_users WHERE email=?", (email,)).fetchone()
-        if user:
-            token = uuid.uuid4().hex
-            expiry = int(time.time()) + 3600
-            cur.execute("UPDATE global_users SET reset_token=?, reset_token_expiry=? WHERE id=?", (token, expiry, user['id']))
-            conn.commit()
-            send_reset_email(email, token)
+        user = cur.execute("SELECT password FROM global_users WHERE email=? AND username=?", (email, username)).fetchone()
         conn.close()
-        return render_template("forgot_password.html", message="If that email exists, a reset link has been sent.")
+        if user:
+            return render_template("forgot_password.html", recovered_password=user['password'])
+        else:
+            return render_template("forgot_password.html", error="No matching account found for that username and email.")
     return render_template("forgot_password.html")
 
 @app.route("/reset_password/<token>", methods=["GET", "POST"])

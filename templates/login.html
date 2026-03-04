@@ -219,6 +219,14 @@
       .stage-right {
         border-left: none;
       }
+
+      .pitch-wrap,
+      .football-container,
+      .grain,
+      #cv,
+      .blob {
+        display: none !important;
+      }
     }
 
     /* LEFT */
@@ -780,6 +788,10 @@
     }
 
     (function loop() {
+      if (window.innerWidth <= 860) {
+        requestAnimationFrame(loop);
+        return;
+      }
       drawBg();
       pts.forEach(p => {
         p.x += p.vx; p.y += p.vy; p.life++;
