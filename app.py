@@ -60,7 +60,7 @@ def init_master_db():
 
     conn.execute('''CREATE TABLE IF NOT EXISTS rooms (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, password TEXT, db_file TEXT, created_at INTEGER)''')
 
-    conn.execute('''CREATE TABLE IF NOT EXISTS global_users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT DEFAULT 'user')''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS global_users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, email TEXT UNIQUE, reset_token TEXT, reset_token_expiry INTEGER, role TEXT DEFAULT 'user')''')
 
     conn.commit()
 
@@ -73,15 +73,21 @@ def upgrade_master_db():
     conn = get_master_connection()
 
     try:
-
         conn.execute("ALTER TABLE global_users ADD COLUMN role TEXT DEFAULT 'user'")
-
-        # Make the very first registered user the Super Admin automatically
-
-        conn.execute("UPDATE global_users SET role='superadmin' WHERE id = (SELECT MIN(id) FROM global_users)")
-
     except sqlite3.OperationalError:
+        pass
+        
+    try:
+        conn.execute("ALTER TABLE global_users ADD COLUMN email TEXT")
+        conn.execute("ALTER TABLE global_users ADD COLUMN reset_token TEXT")
+        conn.execute("ALTER TABLE global_users ADD COLUMN reset_token_expiry INTEGER")
+    except sqlite3.OperationalError:
+        pass
 
+    try:
+        # Make the very first registered user the Super Admin automatically
+        conn.execute("UPDATE global_users SET role='superadmin' WHERE id = (SELECT MIN(id) FROM global_users)")
+    except sqlite3.OperationalError:
         pass
 
     conn.commit()
@@ -272,14 +278,11 @@ def upgrade_db():
 
 # 🛡️ SECURITY WALL
 
+
 @app.before_request
-
 def require_auth():
-
-    public_routes = ['login', 'register', 'static']
-
+    public_routes = ['login', 'register', 'static', 'forgot_password', 'reset_password']
     if request.endpoint not in public_routes and 'global_user' not in session:
-
         return redirect(url_for('login'))
 
         
@@ -345,40 +348,89 @@ def login():
 
 
 @app.route("/register", methods=["GET", "POST"])
-
 def register():
-
     if request.method == "POST":
-
         conn = get_master_connection()
-
         count = conn.execute("SELECT COUNT(*) FROM global_users").fetchone()[0]
-
         role = "superadmin" if count == 0 else "user"
-
         try:
-
-            conn.execute("INSERT INTO global_users (username, password, role) VALUES (?, ?, ?)", (request.form["username"].strip(), request.form["password"], role))
-
+            email = request.form.get("email", "").strip()
+            if not email: return render_template("register.html", error="Email is required!")
+            conn.execute("INSERT INTO global_users (username, password, email, role) VALUES (?, ?, ?, ?)", (request.form["username"].strip(), request.form["password"], email, role))
             conn.commit()
-
         except sqlite3.IntegrityError:
-
-            conn.close(); return render_template("register.html", error="Username taken!")
-
+            conn.close(); return render_template("register.html", error="Username or Email already taken!")
         conn.close(); return redirect(url_for("login"))
-
     return render_template("register.html")
 
 
 
 @app.route("/logout")
-
 def logout(): 
-
     session.clear() 
-
     return redirect(url_for("login"))
+
+def send_reset_email(to_email, token):
+    sender = os.environ.get('SMTP_USERNAME')
+    password = os.environ.get('SMTP_PASSWORD')
+    server = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
+    port = safe_int(os.environ.get('SMTP_PORT', 587))
+    
+    reset_link = url_for('reset_password', token=token, _external=True)
+    
+    if not sender or not password:
+        print(f"\\n--- FORGOT PASSWORD TRIGGERED ---\\nLink: {reset_link}\\n----------------------------------\\n", flush=True)
+        return True
+        
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        msg = MIMEText(f"Click the link to reset your password: {reset_link}")
+        msg['Subject'] = "Password Reset - FIFA 23 Auction"
+        msg['From'] = sender
+        msg['To'] = to_email
+        with smtplib.SMTP(server, port) as s:
+            s.starttls()
+            s.login(sender, password)
+            s.send_message(msg)
+        return True
+    except Exception as e:
+        print("Email sending failed:", e)
+        return False
+
+@app.route("/forgot_password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip()
+        conn = get_master_connection(); cur = conn.cursor()
+        user = cur.execute("SELECT id FROM global_users WHERE email=?", (email,)).fetchone()
+        if user:
+            token = uuid.uuid4().hex
+            expiry = int(time.time()) + 3600
+            cur.execute("UPDATE global_users SET reset_token=?, reset_token_expiry=? WHERE id=?", (token, expiry, user['id']))
+            conn.commit()
+            send_reset_email(email, token)
+        conn.close()
+        return render_template("forgot_password.html", message="If that email exists, a reset link has been sent.")
+    return render_template("forgot_password.html")
+
+@app.route("/reset_password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    conn = get_master_connection(); cur = conn.cursor()
+    user = cur.execute("SELECT id FROM global_users WHERE reset_token=? AND reset_token_expiry > ?", (token, int(time.time()))).fetchone()
+    if not user:
+        conn.close()
+        return render_template("reset_password.html", error="Invalid or expired token.")
+    
+    if request.method == "POST":
+        new_password = request.form.get("password")
+        cur.execute("UPDATE global_users SET password=?, reset_token=NULL, reset_token_expiry=NULL WHERE id=?", (new_password, user['id']))
+        conn.commit()
+        conn.close()
+        return redirect(url_for("login"))
+        
+    conn.close()
+    return render_template("reset_password.html", token=token)
 
 
 
