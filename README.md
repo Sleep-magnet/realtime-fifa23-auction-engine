@@ -61,7 +61,16 @@ A high-performance, real-time multiplayer bidding platform designed for synchron
 6.  **Access the Application:**
     Navigate to `http://localhost:5000` in your browser. Open multiple windows/tabs to test the real-time WebSocket broadcasting!
 
-## 🏗️ Architecture Highlights
+## � Live Deployment
+
+This application is deployed live on Render and can be accessed here:
+**[https://realtime-fifa23-auction-engine.onrender.com](https://realtime-fifa23-auction-engine.onrender.com)**
+
+### 👑 Super Admin Access
+The system automatically assigns the **Super Admin** role to the **very first user who registers** an account on the live site. 
+The Super Admin has the exclusive ability to access the global dashboard (`/superadmin`) to manage and delete active auction rooms and view all registered users.
+
+## �🏗️ Architecture Highlights
 
 *   **Server-Authoritative Timer:** To prevent client-side manipulation and ensure sync, the timer source-of-truth remains on the server, while clients handle UI interpolation for smooth progress bars.
 *   **Concurrent Safety:** Bidding logic utilizes strict server-side validation against the `current_bid` to reject overlapping/stale requests seamlessly.
