@@ -370,28 +370,27 @@ def logout():
     session.clear() 
     return redirect(url_for("login"))
 
-def send_reset_email(to_email, token):
+def send_password_email(to_email, user_password):
     sender = os.environ.get('SMTP_USERNAME', 'noone.136someone@gmail.com')
-    password = os.environ.get('SMTP_PASSWORD')
+    smtp_pass = os.environ.get('SMTP_PASSWORD')
     server = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
     port = safe_int(os.environ.get('SMTP_PORT', 587))
     
-    reset_link = url_for('reset_password', token=token, _external=True)
-    
-    if not sender or not password:
-        print(f"\\n--- FORGOT PASSWORD TRIGGERED ---\\nLink: {reset_link}\\n----------------------------------\\n", flush=True)
+    if not smtp_pass:
+        print(f"\\n--- PASSWORD RECOVERY --- Password for {to_email}: {user_password}\\n", flush=True)
         return True
         
     try:
         import smtplib
         from email.mime.text import MIMEText
-        msg = MIMEText(f"Click the link to reset your password: {reset_link}")
-        msg['Subject'] = "Password Reset - FIFA 23 Auction"
+        body = f"Hello,\n\nYour FIFA 23 Auction password is: {user_password}\n\nKeep this safe!\n\n- FC Auction Team"
+        msg = MIMEText(body)
+        msg['Subject'] = "Your Password - FIFA 23 Auction"
         msg['From'] = sender
         msg['To'] = to_email
         with smtplib.SMTP(server, port) as s:
             s.starttls()
-            s.login(sender, password)
+            s.login(sender, smtp_pass)
             s.send_message(msg)
         return True
     except Exception as e:
@@ -404,22 +403,14 @@ def forgot_password():
         email = request.form.get("email", "").strip()
         username = request.form.get("username", "").strip()
         conn = get_master_connection(); cur = conn.cursor()
-        user = cur.execute("SELECT id FROM global_users WHERE email=? AND username=?", (email, username)).fetchone()
-        
+        user = cur.execute("SELECT password FROM global_users WHERE email=? AND username=?", (email, username)).fetchone()
+        conn.close()
         if user:
-            token = uuid.uuid4().hex
-            expiry = int(time.time()) + 3600
-            cur.execute("UPDATE global_users SET reset_token=?, reset_token_expiry=? WHERE id=?", (token, expiry, user['id']))
-            conn.commit()
-            
-            if send_reset_email(email, token):
-                conn.close()
-                return render_template("forgot_password.html", message="A password reset link has been sent to your email.")
+            if send_password_email(email, user['password']):
+                return render_template("forgot_password.html", message="Your password has been sent to your email address.")
             else:
-                conn.close()
-                return render_template("forgot_password.html", error="Failed to send reset email. Please check server configuration.")
+                return render_template("forgot_password.html", error="Failed to send email. Please check server configuration.")
         else:
-            conn.close()
             return render_template("forgot_password.html", error="No matching account found for that username and email.")
     return render_template("forgot_password.html")
 
