@@ -371,7 +371,7 @@ def logout():
     return redirect(url_for("login"))
 
 def send_reset_email(to_email, token):
-    sender = os.environ.get('SMTP_USERNAME')
+    sender = os.environ.get('SMTP_USERNAME', 'noone.136someone@gmail.com')
     password = os.environ.get('SMTP_PASSWORD')
     server = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
     port = safe_int(os.environ.get('SMTP_PORT', 587))
