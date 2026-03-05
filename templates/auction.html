@@ -50,11 +50,33 @@
 
 
 
+        /* ── 90+ ICON / TOTY tier ── */
+        .theme-icon {
+            --accent: #FF6B00;
+            --accent-glow: rgba(255, 107, 0, 0.65);
+        }
+        .theme-icon .holo-card {
+            box-shadow: 0 0 80px rgba(255,107,0,0.7), 0 0 180px rgba(255,50,0,0.3), inset 0 0 40px rgba(255,200,50,0.12);
+            background: linear-gradient(to bottom, #2e1000, #1a0800, #04060D);
+            border-color: #FF6B00 !important;
+            animation: iconPulse 2s ease-in-out infinite;
+        }
+        @keyframes iconPulse {
+            0%,100% { box-shadow: 0 0 80px rgba(255,107,0,0.7), 0 0 180px rgba(255,50,0,0.3); }
+            50%      { box-shadow: 0 0 130px rgba(255,140,0,1.0), 0 0 260px rgba(255,80,0,0.55); }
+        }
+        .theme-icon #player-rating-val {
+            background: linear-gradient(135deg, #FF6B00, #FFD700) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            border-color: #FF6B00 !important;
+        }
+
+        /* ── 88-89 Mythic tier ── */
         .theme-mythic {
             --accent: #B026FF;
             --accent-glow: rgba(176, 38, 255, 0.5);
         }
-
         .theme-mythic .holo-card {
             box-shadow: 0 0 60px rgba(176, 38, 255, 0.6), inset 0 0 30px rgba(229, 228, 226, 0.3);
             background: linear-gradient(to bottom, #1a0b2e, #04060D);
@@ -581,8 +603,8 @@
 
     {% if player and player.rating >= 88 %}
 
-    <div id="walkout-overlay"
-        style="position:fixed;inset:0;z-index:2000;background:#000000;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:1;transition:opacity 1s ease;">
+    <div id="walkout-overlay" data-rating="{{ player.rating }}"
+        style="position:fixed;inset:0;z-index:2000;background:#000000;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity 1s ease;">
 
         <!-- Cinematic bars -->
 
@@ -598,7 +620,7 @@
 
         <!-- Radial glow center -->
 
-        <div
+        <div id="walkout-glow"
             style="position:absolute;inset:0;background:radial-gradient(ellipse at center, rgba(212,175,55,0.06) 0%, transparent 70%);pointer-events:none;z-index:2;">
         </div>
 
@@ -1012,7 +1034,7 @@
 
             <!-- BID PANEL -->
 
-            <div class="glass-panel rounded-xl p-4 border-t-4 border-t-brand-accent transition-all duration-500 {% if 'Lewandowski' in player.name %}theme-sealed{% endif %}"
+            <div class="glass-panel rounded-xl p-4 border-t-4 border-t-brand-accent transition-all duration-500 {% if 'Lewandowski' in player.name or 'Neymar' in player.name or 'Marquinhos' in player.name or 'Neuer' in player.name or 'Nkunku' in player.name or 'Carvajal' in player.name or 'Sterling' in player.name %}theme-sealed{% endif %}"
                 id="bid-panel">
 
                 <div class="corner-dec tl"></div>
@@ -1023,16 +1045,15 @@
                     <div>
 
                         <p class="text-xs text-white/30 tracking-wider font-black mb-1 uppercase orb" id="bid-title">{%
-                            if 'Lewandowski' in player.name %}🔒 SEALED ENVELOPE{% else %}Current Bid{% endif %}</p>
+                            if 'Lewandowski' in player.name or 'Neymar' in player.name or 'Marquinhos' in player.name or 'Neuer' in player.name or 'Nkunku' in player.name or 'Carvajal' in player.name or 'Sterling' in player.name %}🔒 SEALED ENVELOPE{% else %}Current Bid{% endif %}</p>
 
-                        <p class="text-4xl font-mono font-black text-white orb"><span id="live-bid">{% if 'Lewandowski'
-                                in player.name %}???{% else %}{{ player.current_bid }}{% endif %}</span>{% if
-                            'Lewandowski' not in player.name %}<span class="text-base text-white/30">M</span>{% endif %}
+                        <p class="text-4xl font-mono font-black text-white orb"><span id="live-bid">{% if 'Lewandowski' in player.name or 'Neymar' in player.name or 'Marquinhos' in player.name or 'Neuer' in player.name or 'Nkunku' in player.name or 'Carvajal' in player.name or 'Sterling' in player.name %}???{% else %}{{ player.current_bid }}{% endif %}</span>{% if
+                            not ('Lewandowski' in player.name or 'Neymar' in player.name or 'Marquinhos' in player.name or 'Neuer' in player.name or 'Nkunku' in player.name or 'Carvajal' in player.name or 'Sterling' in player.name) %}<span class="text-base text-white/30">M</span>{% endif %}
                         </p>
 
                         <p class="text-sm mt-1 text-white/30">By: <span id="live-bidder"
                                 class="font-black text-brand-accent bg-brand-accent/10 px-2 py-0.5 rounded transition-colors duration-500">{%
-                                if 'Lewandowski' in player.name %}CLASSIFIED{% else %}{{ player.highest_bidder or
+                                if 'Lewandowski' in player.name or 'Neymar' in player.name or 'Marquinhos' in player.name or 'Neuer' in player.name or 'Nkunku' in player.name or 'Carvajal' in player.name or 'Sterling' in player.name %}CLASSIFIED{% else %}{{ player.highest_bidder or
                                 'Waiting' }}{% endif %}</span></p>
 
                     </div>
@@ -1088,7 +1109,7 @@
 
                         <button type="submit" id="submit-bid" class="btn-accent flex-1">
 
-                            💰 {% if 'Lewandowski' in player.name %}LOCK IN BID{% else %}BID{% endif %}
+                            💰 {% if 'Lewandowski' in player.name or 'Neymar' in player.name or 'Marquinhos' in player.name or 'Neuer' in player.name or 'Nkunku' in player.name or 'Carvajal' in player.name or 'Sterling' in player.name %}LOCK IN BID{% else %}BID{% endif %}
 
                         </button>
 
@@ -1360,6 +1381,8 @@
 
                 <div class="relative z-10">
 
+                    <button onclick="window.location.reload()" class="absolute top-2 right-2 text-white/30 hover:text-white/80 text-3xl font-bold leading-none z-20" title="Next Player">&times;</button>
+
                     <h1 id="popup-title"
                         class="text-6xl font-black italic uppercase text-white mb-6 text-glow transform -rotate-3 orb">
                         SOLD!</h1>
@@ -1524,139 +1547,96 @@
 
         const sfxCrowd = document.getElementById('sfx-crowd');
 
-        sfxTick.volume = 0.5;
+        if (sfxTick) sfxTick.volume = 0.5;
 
 
 
         // 🔥 WALKOUT ENGINE 🔥
 
-        let isWalkout = {% if player and player.rating >= 88 %}true{% else %} false{% endif %};
+        var isWalkout = ({% if player and player.rating >= 88 %}1{% else %} 0{% endif %} === 1);
 
-        if (isWalkout && !sessionStorage.getItem('walkout_played_{{ player.id if player else 0 }}')) {
-
-            sessionStorage.setItem('walkout_played_{{ player.id if player else 0 }}', 'true');
-
-            const overlay = document.getElementById('walkout-overlay');
-
-            const nation = document.getElementById('walkout-nation');
-
-            const club = document.getElementById('walkout-club');
-
-            const pos = document.getElementById('walkout-pos');
-
-            const flash = document.getElementById('walkout-flash');
-
-
-
-            // Lock scroll while walkout plays
-
-            document.body.style.overflow = 'hidden';
-
-
-
-            if (audioInitialized) { document.getElementById('sfx-walkout-build').play().catch(e => { }); }
-
-
-
-            // NATION — appears at 0.5s
-
-            setTimeout(() => {
-
-                nation.classList.add('walkout-text-anim');
-
-                sfxTick.currentTime = 0; sfxTick.play().catch(e => { });
-
-            }, 500);
-
-
-
-            // CLUB — appears at 2.8s
-
-            setTimeout(() => {
-
-                club.classList.add('walkout-text-anim');
-
-                sfxTick.currentTime = 0; sfxTick.play().catch(e => { });
-
-            }, 2800);
-
-
-
-            // POSITION — appears at 5.0s
-
-            setTimeout(() => {
-
-                pos.classList.add('walkout-text-anim');
-
-                sfxTick.currentTime = 0; sfxTick.play().catch(e => { });
-
-            }, 5000);
-
-
-
-            // FLASH + sound drop at 7.0s
-
-            setTimeout(() => {
-
-                flash.style.opacity = '1';
-
-                if (audioInitialized) {
-
-                    document.getElementById('sfx-walkout-drop').play().catch(e => { });
-
-                    sfxCrowd.volume = 1.0;
-
-                    sfxCrowd.play().catch(e => { });
-
-                }
-
-                triggerCommentary("WHAT A WALKOUT!");
-
-            }, 7000);
-
-
-
-            // Flash fade 
-
-            setTimeout(() => { flash.style.opacity = '0'; }, 7200);
-
-
-
-            // Fade out overlay at 8.2s — black screen stays until NOW
-
-            setTimeout(() => {
-
-                overlay.style.opacity = '0';
-
-                document.body.style.overflow = '';
-
-            }, 8200);
-
-
-
-            // Remove overlay at 9.2s
-
-            setTimeout(() => {
-
-                overlay.remove();
-
-                isWalkout = false;
-
-            }, 9200);
-
-
-
-        } else if (document.getElementById('walkout-overlay')) {
-
-            document.getElementById('walkout-overlay').remove();
-
-            isWalkout = false;
-
+        function _safePlay(el) {
+            try { if (el) { el.currentTime = 0; el.play().catch(function () { }); } } catch (e) { }
         }
 
+        function _dismissWalkout() {
+            try {
+                var ov = document.getElementById('walkout-overlay');
+                if (ov) {
+                    ov.style.pointerEvents = 'none';
+                    ov.style.opacity = '0';
+                    setTimeout(function () { try { ov.remove(); } catch (e) { } }, 500);
+                }
+            } catch (e) { }
+            try { document.body.style.overflow = ''; } catch (e) { }
+            isWalkout = false;
+        }
 
+        // UNSKIPPABLE: Escape key disabled during walkout
+        // UNSKIPPABLE: External failsafe removed — walkout plays its full duration
 
-        let isSealedEnvelope = {% if player and 'Lewandowski' in player.name %}true{% else %} false{% endif %};
+        (function runWalkout() {
+            var overlay = document.getElementById('walkout-overlay');
+            if (!overlay) { isWalkout = false; return; }
+
+            // UNSKIPPABLE FIX: clear stale key so walkout always plays on fresh load
+            var wKey = 'wp_{{ player.id if player else 0 }}';
+            sessionStorage.removeItem(wKey);
+            if (!isWalkout) {
+                overlay.style.pointerEvents = 'none';
+                overlay.remove();
+                isWalkout = false;
+                return;
+            }
+            overlay.style.opacity = '1';
+            overlay.style.pointerEvents = 'none';
+            overlay.style.cursor = 'default';
+
+            // 90+ gets fire/orange walkout instead of gold
+            var overlayRating = parseInt(overlay.getAttribute('data-rating') || '88');
+            var walkoutLaser = document.getElementById('walkout-laser');
+            var walkoutGlow  = document.getElementById('walkout-glow');
+            if (overlayRating >= 90) {
+                if (walkoutLaser) walkoutLaser.style.background = 'linear-gradient(90deg,transparent,#FF6B00,transparent)';
+                if (walkoutGlow)  walkoutGlow.style.background  = 'radial-gradient(ellipse at center,rgba(255,107,0,0.14) 0%,rgba(255,50,0,0.05) 40%,transparent 70%)';
+            }
+            document.body.style.overflow = 'hidden';
+
+            var nation = document.getElementById('walkout-nation');
+            var club = document.getElementById('walkout-club');
+            var pos = document.getElementById('walkout-pos');
+            var flash = document.getElementById('walkout-flash');
+            // UNSKIPPABLE: click dismissed and internal failsafe removed
+
+            try {
+                if (audioInitialized) {
+                    var wb = document.getElementById('sfx-walkout-build');
+                    if (wb) wb.play().catch(function () { });
+                }
+            } catch (e) { }
+
+            setTimeout(function () { try { if (nation) nation.classList.add('walkout-text-anim'); _safePlay(sfxTick); } catch (e) { } }, 500);
+            setTimeout(function () { try { if (club) club.classList.add('walkout-text-anim'); _safePlay(sfxTick); } catch (e) { } }, 2800);
+            setTimeout(function () { try { if (pos) pos.classList.add('walkout-text-anim'); _safePlay(sfxTick); } catch (e) { } }, 5000);
+
+            setTimeout(function () {
+                try {
+                    if (flash) flash.style.opacity = '1';
+                    if (audioInitialized) {
+                        var wd = document.getElementById('sfx-walkout-drop');
+                        if (wd) wd.play().catch(function () { });
+                        if (sfxCrowd) { sfxCrowd.volume = 1.0; sfxCrowd.play().catch(function () { }); }
+                    }
+                    if (typeof triggerCommentary === 'function') triggerCommentary("WHAT A WALKOUT!");
+                } catch (e) { }
+            }, 7000);
+
+            setTimeout(function () { try { if (flash) flash.style.opacity = '0'; } catch (e) { } }, 7200);
+            setTimeout(function () { try { if (overlay) overlay.style.opacity = '0'; document.body.style.overflow = ''; } catch (e) { } }, 8200);
+            setTimeout(function () { _dismissWalkout(); }, 9200);
+        })();
+
+        let isSealedEnvelope = {% if player and ('Lewandowski' in player.name or 'Neymar' in player.name or 'Marquinhos' in player.name or 'Neuer' in player.name or 'Nkunku' in player.name or 'Carvajal' in player.name or 'Sterling' in player.name) %}true{% else %}false{% endif %};
 
 
 
@@ -1698,9 +1678,7 @@
 
             if (!audioInitialized) {
 
-                sfxCrowd.volume = 0.4;
-
-                sfxCrowd.play().catch(e => console.log("Audio blocked", e));
+                if (sfxCrowd) { sfxCrowd.volume = 1.0; sfxCrowd.play().catch(() => { }); }
 
                 audioInitialized = true;
 
@@ -1826,13 +1804,11 @@
 
             const b = document.getElementById('body-theme');
 
-            if (r >= 89) b.className = 'text-white min-h-screen theme-mythic transition-colors duration-1000';
-
-            else if (r >= 85) b.className = 'text-white min-h-screen theme-gold transition-colors duration-1000';
-
-            else if (r >= 83) b.className = 'text-white min-h-screen theme-silver transition-colors duration-1000';
-
-            else b.className = 'text-white min-h-screen theme-blue transition-colors duration-1000';
+            if      (r >= 90) b.className = 'text-white min-h-screen theme-icon    transition-colors duration-1000';
+            else if (r >= 88) b.className = 'text-white min-h-screen theme-mythic  transition-colors duration-1000';
+            else if (r >= 85) b.className = 'text-white min-h-screen theme-gold    transition-colors duration-1000';
+            else if (r >= 83) b.className = 'text-white min-h-screen theme-silver  transition-colors duration-1000';
+            else              b.className = 'text-white min-h-screen theme-blue    transition-colors duration-1000';
 
         }
 
@@ -2156,7 +2132,7 @@
 
 
 
-        let userHasFolded = {{ 'true' if has_folded else 'false' }};
+        let userHasFolded = {% if has_folded %}true{% else %} false{% endif %};
 
 
 
@@ -2192,11 +2168,11 @@
 
 
 
-        let currentPlayerId = {% if player %}{ { player.id } } {% else %} null{% endif %};
+        let currentPlayerId = {% if player %}{{ player.id }}{% else %}null{% endif %};
 
         let isShowingPopup = false;
 
-        let lastKnownBid = {% if player %}{ { player.current_bid } } {% else %} 0{% endif %};
+        let lastKnownBid = {% if player %}{{ player.current_bid }}{% else %}0{% endif %};
 
         let lastKnownTime = 35;
 
@@ -2210,44 +2186,51 @@
 
 
 
-        const socket = io();
-        socket.on('connect', () => {
-            console.log('Connected to WebSocket');
-            socket.emit('join');
-        });
+        const socket = io({ transports: ['websocket', 'polling'], reconnection: true, reconnectionAttempts: 10, reconnectionDelay: 1000 });
+        socket.on('connect', () => { console.log('✅ Socket connected'); socket.emit('join'); });
+        socket.on('connect_error', (err) => console.warn('Socket error:', err.message));
+        socket.on('disconnect', () => { socket.once('connect', () => socket.emit('join')); });
 
+
+        // 🔄 POLLING FALLBACK — syncs state every 2s in case socket misses an update
+        setInterval(() => {
+            if (!document.hidden) socket.emit('check_time_up');
+        }, 2000);
         socket.on('auction_update', (data) => {
-            if (isShowingPopup || isWalkout) return;
+            if (isWalkout) return; // UNSKIPPABLE: block socket events until walkout finishes
 
+            // Handle reactions regardless of popup state
             if (data.reaction) {
-
                 let parts = data.reaction.split('|');
-
                 let emoji = parts[0], timestamp = parseInt(parts[1]), user = parts[2];
-
                 if (timestamp > lastReactionTime && (Date.now() - timestamp < 10000)) {
-
                     if (lastReactionTime !== 0) showFloatingReaction(emoji, user);
-
                     lastReactionTime = timestamp;
-
                 } else if (lastReactionTime === 0) { lastReactionTime = timestamp; }
-
             }
-
-
 
             if (data.status === 'global_end') { window.location.href = "/summary"; return; }
 
-            if (data.status === 'waiting' && currentPlayerId !== null) { window.location.reload(); return; }
+            // BUG FIX: Debounced reload with auto-reset so it never gets permanently stuck
+            function _doReload() {
+                if (!window._reloadPending) {
+                    window._reloadPending = true;
+                    setTimeout(() => { window._reloadPending = false; window.location.reload(); }, 500);
+                    setTimeout(() => { window._reloadPending = false; }, 4000);
+                }
+            }
+            if (data.status === 'waiting' && currentPlayerId !== null) { _doReload(); return; }
+            if ((data.status === 'live' || data.status === 'paused') && data.player_id != currentPlayerId) { _doReload(); return; }
+            if (data.status === 'skipped') { _doReload(); return; }
 
-            if ((data.status === 'live' || data.status === 'paused') && data.player_id != currentPlayerId) { window.location.reload(); return; }
+            // Winner popup — show only once, but don't block timer/bid updates while popup is open
+            if (data.status === 'ended') {
+                if (!isShowingPopup) { isShowingPopup = true; showWinnerModal(data.sold_to, data.amount, data.rating, data.club_name, data.anthem_url); }
+                return;
+            }
 
-
-
-            if (data.status === 'ended') { isShowingPopup = true; showWinnerModal(data.sold_to, data.amount, data.rating, data.club_name, data.anthem_url); return; }
-
-            if (data.status === 'skipped') { window.location.reload(); return; }
+            // Block live UI rerenders while winner popup or walkout is showing
+            if (isShowingPopup) return;
 
 
 
@@ -2377,7 +2360,7 @@
 
                 const isPaused = data.status === 'paused';
 
-                const isWinning = (!isSealedEnvelope && data.highest_bidder === "{{ session.username }}");
+                const isWinning = (!isSealedEnvelope && data.highest_bidder === "{{ session.get('global_user', '') }}");
 
                 const disableBidding = isPaused || isWinning || userHasFolded;
 
@@ -2407,7 +2390,7 @@
 
                 if (!isPaused && data.time_left <= 5 && data.time_left < lastKnownTime) {
 
-                    sfxTick.currentTime = 0; sfxTick.play().catch(e => { });
+                    _safePlay(sfxTick);
 
                     if (!suddenDeathActive) setCrowdIntensity(1);
 
@@ -2525,7 +2508,7 @@
                         if (current <= 5) {
                             timerBar.classList.remove('bg-brand-accent');
                             timerBar.classList.add('bg-red-500');
-                            sfxTick.currentTime = 0; sfxTick.play().catch(e => { });
+                            _safePlay(sfxTick);
                             if (current == 3 && !suddenDeathActive) { speakVoice("Going once"); logAction(`<span class="text-yellow-400">Going once...</span>`); }
                             if (current == 1 && !suddenDeathActive) { speakVoice("Going twice"); logAction(`<span class="text-orange-400">Going twice...</span>`); }
                         }
@@ -2555,7 +2538,7 @@
 
                 speakVoice("Player unsold.");
 
-                sfxSold.play().catch(e => { });
+                if (sfxSold) sfxSold.play().catch(() => { });
 
             } else {
 
@@ -2577,7 +2560,7 @@
 
                 } else {
 
-                    sfxSold.play().catch(e => { });
+                    if (sfxSold) sfxSold.play().catch(() => { });
 
                     speakVoice(`Sold to ${winner} for ${amount} million!`);
 
@@ -2591,7 +2574,7 @@
 
             if (winner) { confetti({ particleCount: 250, spread: 100, origin: { y: 0.6 }, colors: ['#D4AF37', '#FFD700', '#ffffff', '#00FF88'] }); }
 
-            setTimeout(() => window.location.reload(true), 6000);
+            setTimeout(() => window.location.reload(true), 9000);
 
         }
     </script>

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, make_response
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, make_response, has_request_context
 
 import sqlite3
 
@@ -18,7 +18,7 @@ import json
 
 from collections import defaultdict
 
-from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask_socketio import SocketIO, emit, join_room as sio_join_room, leave_room as sio_leave_room
 
 
 
@@ -612,6 +612,8 @@ def room_sync():
 
     session["user_id"] = user["id"]
 
+    session["global_user"] = user["username"]
+
     session["username"] = user["username"]
 
     session["role"] = user["role"]
@@ -707,25 +709,21 @@ def delete_room(room_id):
 
 
 @socketio.on('join')
-def on_join(data):
+def on_join(data=None):
     room = session.get('room_name')
     if room:
-        join_room(room)
+        sio_join_room(room)
+        emit_auction_update(room)
 
 @socketio.on('check_time_up')
-def on_check_time_up(data):
+def on_check_time_up(data=None):
     room = session.get('room_name')
     if not room: return
-    
-    # Check if timer is up and trigger state evaluation
-    # This directly simulates what the polling endpoint used to do automatically
-    with app.test_request_context('/auction_status'):
-        # Just calling the function will trigger the logic and emit if needed
-        get_auction_state(room)
+    emit_auction_update(room)
 
 def emit_auction_update(room):
-    with app.test_request_context('/auction_status'):
-        state = get_auction_state(room)
+    state = get_auction_state(room)
+    if state:
         socketio.emit('auction_update', state, to=room)
 
 @app.route("/auction")
@@ -770,7 +768,7 @@ def auction():
 
     has_folded = False
 
-    if player: has_folded = bool(cur.execute("SELECT 1 FROM auction_folds WHERE player_id=? AND username=?", (player["id"], session["username"])).fetchone())
+    if player: has_folded = bool(cur.execute("SELECT 1 FROM auction_folds WHERE player_id=? AND username=?", (player["id"], session["global_user"])).fetchone())
 
     conn.close()
 
@@ -906,7 +904,7 @@ def place_bid():
 
     username = session["global_user"]; conn = get_connection(); cur = conn.cursor()
 
-    player = cur.execute("SELECT * FROM players WHERE auction_status='live'").fetchone()
+    player = cur.execute("SELECT * FROM players WHERE auction_status IN ('live','paused')").fetchone()
 
     
 
@@ -914,9 +912,9 @@ def place_bid():
 
     
 
-    # 🔥 EXCLUSIVE SEALED ENVELOPE (LEWANDOWSKI ONLY) 🔥
+    # 🔥 SEALED ENVELOPE PLAYERS: Lewandowski, Neymar, Marquinhos, Neuer, Nkunku, Carvajal, Sterling 🔥
 
-    if 'Lewandowski' in player["name"]:
+    if ('Lewandowski' in player["name"] or 'Neymar' in player["name"] or 'Marquinhos' in player["name"] or 'Neuer' in player["name"] or 'Nkunku' in player["name"] or 'Carvajal' in player["name"] or 'Sterling' in player["name"]):
 
         if bid_amount > cur.execute("SELECT budget FROM users WHERE username=?", (username,)).fetchone()["budget"]: conn.close(); return jsonify({"error": "INSUFFICIENT FUNDS!"})
 
@@ -950,7 +948,10 @@ def place_bid():
 
     cur.execute("INSERT OR IGNORE INTO auction_bidders (player_id, username) VALUES (?, ?)", (player["id"], username))
 
-    cur.execute("UPDATE players SET current_bid=?, highest_bidder=?, auction_end_time=?, bid_count=bid_count+1 WHERE id=? AND auction_status='live' AND ? > current_bid", (bid_amount, username, int(time.time()) + 15, player["id"], bid_amount))
+    cur.execute("UPDATE players SET current_bid=?, highest_bidder=?, bid_count=bid_count+1 WHERE id=? AND auction_status IN ('live','paused') AND ? > current_bid", (bid_amount, username, player["id"], bid_amount))
+
+    # Only extend the live countdown timer — never touch paused_time_left
+    cur.execute("UPDATE players SET auction_end_time=? WHERE id=? AND auction_status='live'", (int(time.time()) + 15, player["id"]))
 
     conn.commit(); conn.close()
 
@@ -970,11 +971,11 @@ def fold():
 
     conn = get_connection(); cur = conn.cursor()
 
-    player = cur.execute("SELECT * FROM players WHERE auction_status='live'").fetchone()
+    player = cur.execute("SELECT * FROM players WHERE auction_status IN ('live','paused')").fetchone()
 
     if player:
 
-        if player["highest_bidder"] == session["global_user"] and 'Lewandowski' not in player["name"]:
+        if player["highest_bidder"] == session["global_user"] and not ('Lewandowski' in player["name"] or 'Neymar' in player["name"] or 'Marquinhos' in player["name"] or 'Neuer' in player["name"] or 'Nkunku' in player["name"] or 'Carvajal' in player["name"] or 'Sterling' in player["name"]):
 
             conn.close(); return jsonify({"error": "You cannot fold while winning!"})
 
@@ -1032,11 +1033,25 @@ def build_ended_payload(player_data, reaction):
 
 
 
-def get_auction_state():
+def get_auction_state(room=None):
 
-    client_player_id = request.args.get('current_id')
+    client_player_id = request.args.get('current_id') if has_request_context() else None
 
-    conn = get_connection(); cur = conn.cursor()
+    # Get connection robustly
+    conn = None
+    if has_request_context() and session.get('room_db'):
+        conn = get_connection()
+    elif room:
+        master_conn = get_master_connection()
+        room_row = master_conn.execute("SELECT db_file FROM rooms WHERE name=?", (room,)).fetchone()
+        master_conn.close()
+        if room_row:
+            conn = sqlite3.connect(room_row["db_file"], timeout=20.0)
+            conn.execute('pragma journal_mode=wal')
+            conn.row_factory = sqlite3.Row
+
+    if not conn: return None
+    cur = conn.cursor()
 
     
 
@@ -1088,11 +1103,12 @@ def get_auction_state():
 
         
 
-        folds_needed = (total_users - 1) if active_player["highest_bidder"] or 'Lewandowski' in active_player["name"] else total_users
+        _is_sealed = ('Lewandowski' in active_player["name"] or 'Neymar' in active_player["name"] or 'Marquinhos' in active_player["name"] or 'Neuer' in active_player["name"] or 'Nkunku' in active_player["name"] or 'Carvajal' in active_player["name"] or 'Sterling' in active_player["name"])
+        folds_needed = (total_users - 1) if active_player["highest_bidder"] or _is_sealed else total_users
 
 
 
-        if time_left <= 0 and active_player["sudden_death"] == 0 and active_bidders > 1 and fold_count < folds_needed and 'Lewandowski' not in active_player["name"]:
+        if time_left <= 0 and active_player["sudden_death"] == 0 and active_bidders > 1 and fold_count < folds_needed and not ('Lewandowski' in active_player["name"] or 'Neymar' in active_player["name"] or 'Marquinhos' in active_player["name"] or 'Neuer' in active_player["name"] or 'Nkunku' in active_player["name"] or 'Carvajal' in active_player["name"] or 'Sterling' in active_player["name"]):
 
             cur.execute("UPDATE players SET sudden_death=1, auction_end_time=? WHERE id=?", (int(time.time()) + 5, player_id))
 
@@ -1108,9 +1124,9 @@ def get_auction_state():
 
             
 
-            # 🔥 RESOLVE SEALED ENVELOPE BIDS HERE FOR LEWANDOWSKI 🔥
+            # 🔥 RESOLVE SEALED ENVELOPE BIDS FOR ALL SEALED PLAYERS 🔥
 
-            if 'Lewandowski' in active_player["name"]:
+            if ('Lewandowski' in active_player["name"] or 'Neymar' in active_player["name"] or 'Marquinhos' in active_player["name"] or 'Neuer' in active_player["name"] or 'Nkunku' in active_player["name"] or 'Carvajal' in active_player["name"] or 'Sterling' in active_player["name"]):
 
                 top_bid = cur.execute("SELECT username, bid_amount FROM blind_bids WHERE player_id=? ORDER BY bid_amount DESC LIMIT 1", (player_id,)).fetchone()
 
@@ -1136,7 +1152,7 @@ def get_auction_state():
 
                 
 
-                if sold_to or ('Lewandowski' in active_player["name"] and cur.execute("SELECT 1 FROM blind_bids WHERE player_id=?", (player_id,)).fetchone()):
+                if sold_to or (('Lewandowski' in active_player["name"] or 'Neymar' in active_player["name"] or 'Marquinhos' in active_player["name"] or 'Neuer' in active_player["name"] or 'Nkunku' in active_player["name"] or 'Carvajal' in active_player["name"] or 'Sterling' in active_player["name"]) and cur.execute("SELECT 1 FROM blind_bids WHERE player_id=?", (player_id,)).fetchone()):
 
                     cur.execute("UPDATE users SET budget = budget - ? WHERE username=?", (amount, sold_to))
 
@@ -1188,7 +1204,7 @@ def get_auction_state():
 
         conn.close()
 
-        return jsonify({
+        return {
 
             "status": "live", 
 
@@ -1226,7 +1242,7 @@ def get_auction_state():
 
             "rating": active_player["rating"]
 
-        })
+        }
 
 
 
@@ -2053,18 +2069,3 @@ def league_delete_team(team_id):
 if __name__ == "__main__":
 
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
