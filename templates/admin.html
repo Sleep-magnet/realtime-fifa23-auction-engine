@@ -159,10 +159,20 @@ tbody td{padding:15px 20px;vertical-align:middle;font-size:13px;}
               {% endif %}
             </td>
             <td style="text-align:right;">
-              <form action="{{ url_for('reset_player', player_id=p.id) }}" method="POST" onsubmit="return confirm('Reset {{ p.name }}?');">
-                {% if p.is_sold == 1 %}<button type="submit" class="btn-act btn-red">Undo Sale</button>
-                {% else %}<button type="submit" class="btn-act btn-yellow">Revive</button>{% endif %}
+              {% if p.is_sold == 1 %}
+              <div class="acts">
+                <form action="{{ url_for('reset_player', player_id=p.id) }}" method="POST" onsubmit="return confirm('Revive {{ p.name }} back into auction pool?');">
+                  <button type="submit" class="btn-act btn-yellow">♻️ Revive</button>
+                </form>
+                <form action="{{ url_for('unassign_player', player_id=p.id) }}" method="POST" onsubmit="return confirm('Mark {{ p.name }} as Unsold? Budget will be refunded and player won\'t return to auction.');">
+                  <button type="submit" class="btn-act btn-red">🔴 Mark Unsold</button>
+                </form>
+              </div>
+              {% else %}
+              <form action="{{ url_for('reset_player', player_id=p.id) }}" method="POST" onsubmit="return confirm('Revive {{ p.name }} back into auction pool?');">
+                <button type="submit" class="btn-act btn-yellow">♻️ Revive</button>
               </form>
+              {% endif %}
             </td>
           </tr>
           {% else %}
@@ -173,9 +183,64 @@ tbody td{padding:15px 20px;vertical-align:middle;font-size:13px;}
     </div>
   </div>
 
+  <div class="section">
+    <div class="sec-hd">
+      <span class="sec-title">🔄 Team Restore</span>
+      <span class="sec-count">Session Recovery</span>
+    </div>
+    <div class="tcard" style="padding:24px;">
+      <p style="color:rgba(255,255,255,.5);font-size:13px;margin-bottom:20px;">Restore a player's team from their backup file. Select the user first, then upload their CSV file.</p>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+        <a href="{{ url_for('admin_download_all_teams') }}" class="btn-act btn-yellow" style="padding:10px 20px;font-size:14px;text-decoration:none;">⬇️ Download All Teams</a>
+        <select id="importUserSelect" style="background:#0d0d1a;color:rgba(255,255,255,.85);border:1px solid rgba(191,160,70,.3);border-radius:8px;padding:10px 14px;font-size:14px;font-family:inherit;cursor:pointer;">
+          <option value="">— Select Player —</option>
+          {% for u in users %}
+          <option value="{{ u.username }}">{{ u.username }}</option>
+          {% endfor %}
+        </select>
+        <input type="file" id="backupFileInput" accept=".csv" style="display:none;" onchange="handleImport(this)">
+        <button onclick="startImport()" class="btn-act btn-blue" style="padding:10px 20px;font-size:14px;">📂 Import Backup (.csv)</button>
+      </div>
+      <div id="importResult" style="margin-top:18px;display:none;"></div>
+    </div>
+  </div>
+
 </div>
 
 <script>
+async function handleImport(input) {
+  const file = input.files[0];
+  const username = document.getElementById('importUserSelect').value;
+  if (!file) return;
+  const resultDiv = document.getElementById('importResult');
+  resultDiv.style.display = 'block';
+  resultDiv.innerHTML = '<span style="color:rgba(255,255,255,.5);">Importing...</span>';
+  const formData = new FormData();
+  formData.append('backup_file', file);
+  formData.append('username', username);
+  try {
+    const res = await fetch('/admin/import_team', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.success) {
+      let html = `<div style="background:rgba(0,200,100,.1);border:1px solid rgba(0,200,100,.3);border-radius:8px;padding:14px;">`;
+      html += `<div style="color:#00c864;font-weight:700;font-size:15px;margin-bottom:8px;">✅ ${data.username} restored successfully</div>`;
+      if (data.imported.length) html += `<div style="color:rgba(255,255,255,.7);font-size:13px;margin-bottom:4px;"><b>Imported (${data.imported.length}):</b> ${data.imported.join(', ')}</div>`;
+      if (data.skipped.length) html += `<div style="color:rgba(255,180,0,.8);font-size:13px;"><b>Skipped (${data.skipped.length}):</b> ${data.skipped.join(', ')}</div>`;
+      html += `</div>`;
+      resultDiv.innerHTML = html;
+    } else {
+      resultDiv.innerHTML = `<div style="background:rgba(255,60,60,.1);border:1px solid rgba(255,60,60,.3);border-radius:8px;padding:14px;color:#ff6060;">❌ ${data.error}</div>`;
+    }
+  } catch(e) {
+    resultDiv.innerHTML = `<div style="color:#ff6060;">❌ Network error. Try again.</div>`;
+  }
+  input.value = '';
+}
+function startImport() {
+  const username = document.getElementById('importUserSelect').value;
+  if (!username) { alert('Please select a player first!'); return; }
+  document.getElementById('backupFileInput').click();
+}
 const cur=document.getElementById('cur'),ring=document.getElementById('cur-ring');
 let mx=window.innerWidth/2,my=window.innerHeight/2,rx=mx,ry=my;
 document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;cur.style.left=mx+'px';cur.style.top=my+'px';});

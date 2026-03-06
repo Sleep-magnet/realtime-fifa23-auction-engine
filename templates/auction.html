@@ -889,6 +889,23 @@
 
                     </div>
 
+                    <!-- EXIT REQUEST — below status -->
+                    {% if session.get('role') != 'admin' %}
+                    <div id="exit-container" class="mt-2">
+                        {% if user_has_exited %}
+                        <div class="border border-yellow-500/20 rounded-lg bg-yellow-500/5 p-2 text-center">
+                            <div class="text-yellow-400/70 text-xs font-bold mb-1">🚪 EXITED</div>
+                            <button onclick="submitRejoinRequest()" id="rejoin-btn" class="w-full bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/30 font-bold py-2 rounded-lg text-xs cursor-pointer">🔄 REQUEST REJOIN</button>
+                        </div>
+                        {% elif user_exit_requested %}
+                        <div class="text-yellow-300/70 text-xs text-center mb-1 font-semibold">⏳ Pending approval...</div>
+                        <button onclick="cancelExitRequest()" class="w-full bg-red-500/8 text-red-400/70 border border-red-500/20 font-bold py-2 rounded-lg text-xs cursor-pointer">✕ Cancel</button>
+                        {% else %}
+                        <button id="exit-btn" onclick="submitExitRequest()" class="w-full bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 font-bold py-2 rounded-lg text-xs cursor-pointer">🚪 REQUEST EXIT</button>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
                     <!-- FEED -->
 
                     <div class="flex-1">
@@ -985,50 +1002,11 @@
 
             {% if player %}
 
-            <!-- STRATEGY INSIGHTS -->
-
-            <div class="glass-panel rounded-xl p-3 border border-white/5">
-
-                <div class="flex justify-between items-center cursor-pointer"
-                    onclick="document.getElementById('strat-content').classList.toggle('hidden')">
-
-                    <h4
-                        class="text-brand-accent font-black text-xs uppercase tracking-widest transition-colors duration-500 orb">
-                        📊 Strategy Insights</h4>
-
-                    <span class="text-white/30 text-xs">▼</span>
-
-                </div>
-
-                <div id="scarcity-alert"
-                    class="hidden bg-yellow-500/10 border border-yellow-500/40 text-yellow-400 text-[10px] font-black p-2 rounded mt-3 text-center uppercase tracking-wider animate-pulse orb">
-
-                    ⚠️ SCARCITY ALERT: <span id="stat-pos-rem-alert">0</span> left
-
-                </div>
-
-                <div id="strat-content" class="space-y-3 mt-4 hidden">
-
-                    <div class="flex justify-between text-sm"><span class="text-white/30">Active Bidders</span><span
-                            class="font-black orb text-xs" id="stat-bidders">0</span></div>
-
-                    <div class="flex justify-between text-sm"><span class="text-white/30">Pos Remaining</span><span
-                            class="font-black text-blue-400 orb text-xs" id="stat-pos-rem">0</span></div>
-
-                    <div class="flex justify-between text-sm"><span class="text-white/30">Demand Index</span><span
-                            class="font-black text-red-400 orb text-xs" id="stat-pos-dem">0</span></div>
-
-                    <div class="w-full bg-white/5 h-px my-2"></div>
-
-                    <div class="flex justify-between text-sm"><span class="text-white/30">Highest Budget</span><span
-                            class="font-mono text-green-400"><span id="stat-high-budg">0</span>M</span></div>
-
-                    <div class="flex justify-between text-sm"><span class="text-white/30">Avg Budget</span><span
-                            class="font-mono text-yellow-400"><span id="stat-avg-budg">0</span>M</span></div>
-
-                </div>
-
-            </div>
+            <!-- PLAYER WATCHLIST TRIGGER -->
+            <button onclick="toggleWatchlistPopup()" class="w-full glass-panel rounded-xl p-3 border border-white/5 flex justify-between items-center hover:border-yellow-500/30 transition-all cursor-pointer">
+                <h4 class="text-brand-accent font-black text-xs uppercase tracking-widest transition-colors duration-500 orb">⭐ Player Watchlist</h4>
+                <span id="watchlist-count-badge" class="bg-yellow-500/20 text-yellow-400 text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+            </button>
 
 
 
@@ -1146,19 +1124,44 @@
 
 
 
-                <div id="fold-container">
+                <div class="flex justify-between mt-1">
+                    <span class="text-white/30">Exited:</span>
+                    <span id="exited-users-list" class="text-yellow-400 font-bold text-right">{% if exited_users %}{{ exited_users | join(', ') }}{% else %}None{% endif %}</span>
+                </div>
 
+                <div id="fold-container">
+                    {% if user_has_exited %}
+                    <button type="button" disabled class="mt-4 w-full block text-center bg-yellow-500/8 text-yellow-400/50 border border-yellow-500/20 font-bold py-3 rounded-lg cursor-not-allowed">🚪 YOU EXITED</button>
+                    {% else %}
                     <button type="button" id="fold-btn" onclick="submitFold()"
                         class="mt-4 w-full block text-center bg-red-500/8 hover:bg-red-500/15 text-red-400 border border-red-500/25 font-bold py-3 rounded-lg transition-colors cursor-pointer">✋
                         FOLD</button>
-
+                    {% endif %}
                 </div>
+
+
 
             </div>
 
             {% endif %}
 
-
+            <!-- EXIT REQUESTS PANEL — admin live view -->
+            <div id="admin-exit-requests" class="mt-3" {% if not exit_requests %}style="display:none;"{% endif %}>
+                <div class="glass-panel rounded-xl p-4 border border-yellow-500/25 bg-yellow-500/5">
+                    <p class="text-yellow-400 font-bold text-xs uppercase tracking-widest mb-3">🚪 Exit / Rejoin Requests</p>
+                    <div id="exit-requests-list">
+                        {% for req_user in exit_requests %}
+                        <div class="flex items-center justify-between mb-2" id="exit-req-{{ req_user }}">
+                            <span class="text-white font-semibold text-sm">{{ req_user }}</span>
+                            <div class="flex gap-2">
+                                <button onclick="approveExit('{{ req_user }}')" class="px-3 py-1 bg-green-500/15 hover:bg-green-500/25 text-green-400 border border-green-500/30 rounded text-xs font-bold cursor-pointer">✓ Approve</button>
+                                <button onclick="rejectExit('{{ req_user }}')" class="px-3 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 rounded text-xs font-bold cursor-pointer">✕ Reject</button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
 
             <!-- ADMIN CONTROLS -->
 
@@ -1579,9 +1582,13 @@
             var overlay = document.getElementById('walkout-overlay');
             if (!overlay) { isWalkout = false; return; }
 
-            // UNSKIPPABLE FIX: clear stale key so walkout always plays on fresh load
             var wKey = 'wp_{{ player.id if player else 0 }}';
-            sessionStorage.removeItem(wKey);
+            if (sessionStorage.getItem(wKey) === 'seen') {
+                overlay.style.pointerEvents = 'none';
+                overlay.remove();
+                isWalkout = false;
+                return;
+            }
             if (!isWalkout) {
                 overlay.style.pointerEvents = 'none';
                 overlay.remove();
@@ -1591,6 +1598,7 @@
             overlay.style.opacity = '1';
             overlay.style.pointerEvents = 'none';
             overlay.style.cursor = 'default';
+            sessionStorage.setItem(wKey, 'seen');
 
             // 90+ gets fire/orange walkout instead of gold
             var overlayRating = parseInt(overlay.getAttribute('data-rating') || '88');
@@ -2136,6 +2144,103 @@
 
 
 
+        // ── EXIT / REJOIN FUNCTIONS ────────────────────────────
+        function submitExitRequest() {
+            if (!confirm('Request to exit the auction? Admin must approve.')) return;
+            const btn = document.getElementById('exit-btn');
+            if (btn) { btn.disabled = true; btn.innerText = 'Sending...'; }
+            fetch('/request_exit', { method: 'POST', headers: {'Content-Type':'application/json'} })
+            .then(r => r.json()).then(data => {
+                if (data.success) {
+                    logAction('<span class="text-yellow-400 font-bold">⏳ Exit request sent — waiting for admin approval.</span>');
+                    const ec = document.getElementById('exit-container');
+                    if (ec) ec.innerHTML = '<div class="text-center text-yellow-300/70 text-xs mb-2 font-semibold">⏳ Exit request pending admin approval...</div><button onclick="cancelExitRequest()" class="w-full block text-center bg-red-500/8 hover:bg-red-500/15 text-red-400/70 border border-red-500/20 font-bold py-2 rounded-lg text-xs cursor-pointer">✕ Cancel Request</button>';
+                } else { alert(data.error || 'Cannot request exit.'); if (btn) { btn.disabled = false; btn.innerText = '🚪 REQUEST EXIT'; } }
+            }).catch(() => { alert('Network error.'); if (btn) { btn.disabled = false; } });
+        }
+
+        function cancelExitRequest() {
+            fetch('/cancel_exit_request', { method: 'POST', headers: {'Content-Type':'application/json'} })
+            .then(r => r.json()).then(data => {
+                if (data.success) {
+                    const ec = document.getElementById('exit-container');
+                    if (ec) ec.innerHTML = '<button type="button" onclick="submitExitRequest()" class="w-full block text-center bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 font-bold py-3 rounded-lg cursor-pointer">🚪 REQUEST EXIT</button><p class="text-white/20 text-xs text-center mt-1">Admin must approve your exit</p>';
+                }
+            });
+        }
+
+        function approveExit(username) {
+            fetch('/approve_exit', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({username}) })
+            .then(r => r.json()).then(data => {
+                if (data.success) {
+                    logAction(`<span class="text-yellow-400 font-bold">🚪 ${username} exited the auction.</span>`);
+                    const row = document.getElementById('exit-req-' + username);
+                    if (row) row.remove();
+                    const list = document.getElementById('exit-requests-list');
+                    if (list && list.children.length === 0) { const p = document.getElementById('admin-exit-requests'); if (p) p.style.display = 'none'; }
+                } else { alert(data.error); }
+            });
+        }
+
+        function rejectExit(username) {
+            fetch('/reject_exit', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({username}) })
+            .then(r => r.json()).then(data => {
+                if (data.success) {
+                    logAction(`<span class="text-red-400/70">Exit request from ${username} rejected.</span>`);
+                    const row = document.getElementById('exit-req-' + username);
+                    if (row) row.remove();
+                    const list = document.getElementById('exit-requests-list');
+                    if (list && list.children.length === 0) { const p = document.getElementById('admin-exit-requests'); if (p) p.style.display = 'none'; }
+                }
+            });
+        }
+
+        function submitRejoinRequest() {
+            if (!confirm('Request to rejoin the auction? Admin must approve.')) return;
+            const btn = document.getElementById('rejoin-btn');
+            if (btn) { btn.disabled = true; btn.innerText = 'Sending...'; }
+            fetch('/request_rejoin', { method: 'POST', headers: {'Content-Type':'application/json'} })
+            .then(r => r.json()).then(data => {
+                if (data.success) {
+                    logAction('<span class="text-green-400 font-bold">🔄 Rejoin request sent — waiting for admin approval.</span>');
+                    const ec = document.getElementById('exit-container');
+                    if (ec) ec.innerHTML = '<div class="mt-2 border border-green-500/20 rounded-lg bg-green-500/5 p-3"><div class="text-center text-green-400/70 text-xs font-bold mb-2">⏳ Rejoin request pending...</div><button onclick="cancelRejoinRequest()" class="w-full block text-center bg-red-500/8 text-red-400/70 border border-red-500/20 font-bold py-2 rounded-lg text-xs cursor-pointer">✕ Cancel</button></div>';
+                } else { alert(data.error || 'Cannot request rejoin.'); if (btn) { btn.disabled = false; btn.innerText = '🔄 REQUEST REJOIN'; } }
+            }).catch(() => { if (btn) { btn.disabled = false; } });
+        }
+
+        function cancelRejoinRequest() {
+            fetch('/cancel_rejoin_request', { method: 'POST', headers: {'Content-Type':'application/json'} })
+            .then(r => r.json()).then(data => {
+                if (data.success) {
+                    const ec = document.getElementById('exit-container');
+                    if (ec) ec.innerHTML = '<div class="border border-yellow-500/20 rounded-lg bg-yellow-500/5 p-3"><div class="text-center text-yellow-400/70 text-xs font-bold mb-2">🚪 YOU HAVE EXITED</div><button onclick="submitRejoinRequest()" id="rejoin-btn" class="w-full block text-center bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/30 font-bold py-2 rounded-lg text-xs cursor-pointer">🔄 REQUEST REJOIN</button><p class="text-white/20 text-xs text-center mt-1">Admin must approve</p></div>';
+                }
+            });
+        }
+
+        function approveRejoin(username) {
+            fetch('/approve_rejoin', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({username}) })
+            .then(r => r.json()).then(data => {
+                if (data.success) {
+                    logAction(`<span class="text-green-400 font-bold">🔄 ${username} has rejoined.</span>`);
+                    const row = document.getElementById('rejoin-req-' + username);
+                    if (row) row.remove();
+                } else { alert(data.error); }
+            });
+        }
+
+        function rejectRejoin(username) {
+            fetch('/reject_rejoin', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({username}) })
+            .then(r => r.json()).then(data => {
+                if (data.success) {
+                    logAction(`<span class="text-red-400/70">Rejoin denied for ${username}.</span>`);
+                    const row = document.getElementById('rejoin-req-' + username);
+                    if (row) row.remove();
+                }
+            });
+        }
+
         function submitFold() {
 
             const foldBtn = document.getElementById('fold-btn');
@@ -2236,25 +2341,47 @@
 
             if (data.status === 'live' || data.status === 'paused') {
 
-                document.getElementById('stat-bidders').innerText = data.active_bidders;
-
-                document.getElementById('stat-pos-rem').innerText = data.pos_remaining;
-
-                document.getElementById('stat-pos-rem-alert').innerText = data.pos_remaining;
-
-                document.getElementById('stat-pos-dem').innerText = data.pos_demand;
-
-                document.getElementById('stat-high-budg').innerText = data.highest_budget;
-
-                document.getElementById('stat-avg-budg').innerText = data.avg_budget;
-
-
-
-                if (data.scarcity_alert) { document.getElementById('scarcity-alert').classList.remove('hidden'); }
-
-
-
                 if (data.folded_users) { document.getElementById('folded-users-list').innerText = data.folded_users.length > 0 ? data.folded_users.join(', ') : 'None'; }
+
+                if (data.exited_users !== undefined) {
+                    const el = document.getElementById('exited-users-list');
+                    if (el) el.innerText = data.exited_users.length > 0 ? data.exited_users.join(', ') : 'None';
+                    const myUser = "{{ session['global_user'] }}";
+                    if (data.exited_users.includes(myUser)) {
+                        const fc = document.getElementById('fold-container');
+                        if (fc) fc.innerHTML = '<button disabled class="mt-4 w-full block text-center bg-yellow-500/8 text-yellow-400/50 border border-yellow-500/20 font-bold py-3 rounded-lg cursor-not-allowed">🚪 YOU EXITED</button>';
+                        const ec = document.getElementById('exit-container');
+                        if (ec) ec.innerHTML = '<div class="border border-yellow-500/20 rounded-lg bg-yellow-500/5 p-3"><div class="text-center text-yellow-400/70 text-xs font-bold mb-2">🚪 YOU HAVE EXITED</div><button onclick="submitRejoinRequest()" id="rejoin-btn" class="w-full block text-center bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/30 font-bold py-2 rounded-lg text-xs cursor-pointer">🔄 REQUEST REJOIN</button><p class=\"text-white/20 text-xs text-center mt-1\">Admin must approve</p></div>';
+                    }
+                }
+
+                if (data.exit_requests !== undefined) {
+                    const isAdmin = "{{ session.get('role') }}" === 'admin';
+                    const panel = document.getElementById('admin-exit-requests');
+                    const list = document.getElementById('exit-requests-list');
+                    if (panel && list) {
+                        const allReqs = [...(data.exit_requests||[]).map(u=>({u,type:'exit'})), ...(data.rejoin_requests||[]).map(u=>({u,type:'rejoin'}))];
+                        if (allReqs.length > 0) {
+                            panel.style.display = 'block';
+                            if (isAdmin) {
+                                list.innerHTML = allReqs.map(({u,type}) =>
+                                    type === 'exit'
+                                    ? `<div class="flex items-center justify-between mb-2" id="exit-req-${u}"><span class="text-white font-semibold text-sm">🚪 ${u} wants to exit</span><div class="flex gap-2"><button onclick="approveExit('${u}')" class="px-3 py-1 bg-green-500/15 text-green-400 border border-green-500/30 rounded text-xs font-bold cursor-pointer">✓</button><button onclick="rejectExit('${u}')" class="px-3 py-1 bg-red-500/10 text-red-400 border border-red-500/25 rounded text-xs font-bold cursor-pointer">✕</button></div></div>`
+                                    : `<div class="flex items-center justify-between mb-2" id="rejoin-req-${u}"><span class="text-green-400 font-semibold text-sm">🔄 ${u} wants to rejoin</span><div class="flex gap-2"><button onclick="approveRejoin('${u}')" class="px-3 py-1 bg-green-500/15 text-green-400 border border-green-500/30 rounded text-xs font-bold cursor-pointer">✓</button><button onclick="rejectRejoin('${u}')" class="px-3 py-1 bg-red-500/10 text-red-400 border border-red-500/25 rounded text-xs font-bold cursor-pointer">✕</button></div></div>`
+                                ).join('');
+                            }
+                        } else {
+                            panel.style.display = 'none';
+                        }
+                    }
+                    const myUser3 = "{{ session['global_user'] }}";
+                    const ec3 = document.getElementById('exit-container');
+                    if (ec3) {
+                        if (data.exit_requests.includes(myUser3) && !ec3.innerHTML.includes('pending')) {
+                            ec3.innerHTML = '<div class="text-center text-yellow-300/70 text-xs mb-2 font-semibold">⏳ Exit request pending...</div><button onclick="cancelExitRequest()" class="w-full block text-center bg-red-500/8 text-red-400/70 border border-red-500/20 font-bold py-2 rounded-lg text-xs cursor-pointer">✕ Cancel</button>';
+                        }
+                    }
+                }
 
                 if (data.active_bidders_list) { document.getElementById('active-bidders-list').innerText = data.active_bidders_list.length > 0 ? (isSealedEnvelope ? "CLASSIFIED" : data.active_bidders_list.join(', ')) : 'None'; }
 
@@ -2578,6 +2705,111 @@
 
         }
     </script>
-</body>
+<!-- ⭐ WATCHLIST SCRIPT -->
+<script>
+const ALL_PLAYERS = {{ waiting_players | tojson }};
+let watchlist = JSON.parse(localStorage.getItem('watchlist_{{ session.get("room_name","") }}') || '[]');
 
+function saveWatchlist() {
+    localStorage.setItem('watchlist_{{ session.get("room_name","") }}', JSON.stringify(watchlist));
+}
+
+function renderWatchlist() {
+    const badge = document.getElementById('watchlist-count-badge');
+    if (badge) badge.innerText = watchlist.length;
+    const container = document.getElementById('watchlist-items');
+    const empty = document.getElementById('watchlist-empty');
+    if (watchlist.length === 0) {
+        empty.style.display = 'block';
+        container.querySelectorAll('.wl-item').forEach(e => e.remove());
+        return;
+    }
+    empty.style.display = 'none';
+    container.querySelectorAll('.wl-item').forEach(e => e.remove());
+    watchlist.forEach(p => {
+        const ratingColor = p.rating >= 88 ? '#D4AF37' : p.rating >= 83 ? '#00D4FF' : 'rgba(255,255,255,0.5)';
+        const div = document.createElement('div');
+        div.className = 'wl-item';
+        div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:rgba(255,255,255,0.04);border-radius:6px;border-left:2px solid ' + ratingColor;
+        div.innerHTML = `<div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;font-weight:700;color:${ratingColor};">${p.rating}</span>
+            <div>
+                <div style="font-size:0.78rem;font-weight:700;color:rgba(255,255,255,0.85);">${p.name}</div>
+                <div style="font-size:0.6rem;color:rgba(255,255,255,0.3);">${p.position}</div>
+            </div>
+        </div>
+        <button onclick="removeFromWatchlist(${p.id})" style="background:none;border:none;color:rgba(255,100,100,0.6);cursor:pointer;font-size:0.9rem;padding:2px 6px;" title="Remove">✕</button>`;
+        container.appendChild(div);
+    });
+}
+
+function addToWatchlist(player) {
+    if (watchlist.find(p => p.id === player.id)) return;
+    watchlist.push(player);
+    saveWatchlist();
+    renderWatchlist();
+    document.getElementById('watchlist-search').value = '';
+    document.getElementById('watchlist-results').style.display = 'none';
+}
+
+function removeFromWatchlist(id) {
+    watchlist = watchlist.filter(p => p.id !== id);
+    saveWatchlist();
+    renderWatchlist();
+}
+
+function filterWatchlistSearch() {
+    const q = document.getElementById('watchlist-search').value.trim().toLowerCase();
+    const results = document.getElementById('watchlist-results');
+    if (!q) { results.style.display = 'none'; return; }
+    const matches = ALL_PLAYERS.filter(p => p.name.toLowerCase().includes(q)).slice(0, 8);
+    if (!matches.length) { results.style.display = 'none'; return; }
+    results.style.display = 'block';
+    results.innerHTML = matches.map(p => {
+        const ratingColor = p.rating >= 88 ? '#D4AF37' : p.rating >= 83 ? '#00D4FF' : 'rgba(255,255,255,0.5)';
+        return `<div onclick='addToWatchlist(${JSON.stringify(p)})' style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='none'">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;font-weight:700;color:${ratingColor};min-width:22px;">${p.rating}</span>
+            <span style="font-size:0.8rem;color:rgba(255,255,255,0.8);">${p.name}</span>
+            <span style="font-size:0.65rem;color:rgba(255,255,255,0.3);margin-left:auto;">${p.position}</span>
+        </div>`;
+    }).join('');
+}
+
+// Close results when clicking outside
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('#watchlist-search') && !e.target.closest('#watchlist-results')) {
+        document.getElementById('watchlist-results').style.display = 'none';
+    }
+});
+
+renderWatchlist();
+</script>
+
+<!-- WATCHLIST POPUP MODAL -->
+<div id="watchlist-popup" style="display:none;position:fixed;inset:0;z-index:9990;align-items:center;justify-content:center;">
+    <div onclick="toggleWatchlistPopup()" style="position:absolute;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);"></div>
+    <div style="position:relative;z-index:9991;width:100%;max-width:440px;margin:20px;background:linear-gradient(155deg,rgba(12,10,20,0.98),rgba(8,6,14,0.99));border:1px solid rgba(255,193,7,0.2);border-radius:12px;padding:24px;box-shadow:0 40px 80px rgba(0,0,0,0.8);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.06);">
+            <h3 style="font-size:13px;font-weight:900;color:rgba(255,193,7,0.9);letter-spacing:0.15em;text-transform:uppercase;">⭐ Player Watchlist</h3>
+            <button onclick="toggleWatchlistPopup()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.4);width:28px;height:28px;border-radius:6px;font-size:14px;cursor:pointer;">✕</button>
+        </div>
+        <input id="watchlist-search" type="text" placeholder="🔍 Search player to add..." autocomplete="off"
+            oninput="filterWatchlistSearch()"
+            style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;color:white;font-size:0.8rem;outline:none;margin-bottom:10px;box-sizing:border-box;">
+        <div id="watchlist-results" style="display:none;max-height:160px;overflow-y:auto;background:#0d1120;border:1px solid rgba(255,255,255,0.08);border-radius:8px;margin-bottom:12px;"></div>
+        <div id="watchlist-items" style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;">
+            <div id="watchlist-empty" style="text-align:center;color:rgba(255,255,255,0.2);font-size:0.75rem;padding:24px 0;">No players starred yet ⭐</div>
+        </div>
+    </div>
+</div>
+<script>
+function toggleWatchlistPopup() {
+    const popup = document.getElementById('watchlist-popup');
+    const isOpen = popup.style.display === 'flex';
+    popup.style.display = isOpen ? 'none' : 'flex';
+    if (!isOpen) { renderWatchlist(); setTimeout(()=>{ const s=document.getElementById('watchlist-search'); if(s) s.focus(); },50); }
+}
+</script>
+
+</body>
 </html>

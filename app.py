@@ -136,7 +136,7 @@ def init_room_db(db_path):
 
     cur = conn.cursor()
 
-    cur.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, budget INTEGER NOT NULL DEFAULT 1000, role TEXT NOT NULL DEFAULT 'user', current_formation TEXT DEFAULT '4-4-2', club_name TEXT DEFAULT 'FC Ultimate', anthem_url TEXT DEFAULT '', pitch_theme TEXT DEFAULT 'classic')''')
+    cur.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, budget INTEGER NOT NULL DEFAULT 1000, role TEXT NOT NULL DEFAULT 'user', current_formation TEXT DEFAULT '4-4-2', club_name TEXT DEFAULT 'FC Ultimate', anthem_url TEXT DEFAULT '', pitch_theme TEXT DEFAULT 'classic', has_exited INTEGER DEFAULT 0, exit_requested INTEGER DEFAULT 0)''')
 
     cur.execute('''CREATE TABLE IF NOT EXISTS players (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, image TEXT, club TEXT, nation TEXT, position TEXT NOT NULL, rating INTEGER NOT NULL, pac INTEGER, sho INTEGER, pas INTEGER, dri INTEGER, def INTEGER, phy INTEGER, pac_acc INTEGER, pac_sprint INTEGER, sho_pos INTEGER, sho_fin INTEGER, sho_pow INTEGER, sho_long INTEGER, sho_vol INTEGER, sho_pen INTEGER, pas_vis INTEGER, pas_cro INTEGER, pas_fk INTEGER, pas_short INTEGER, pas_long INTEGER, pas_curve INTEGER, dri_agi INTEGER, dri_bal INTEGER, dri_react INTEGER, dri_ball INTEGER, dri_comp INTEGER, def_inter INTEGER, def_head INTEGER, def_aware INTEGER, def_stand INTEGER, def_slide INTEGER, phy_jump INTEGER, phy_stam INTEGER, phy_str INTEGER, phy_agg INTEGER, current_bid INTEGER DEFAULT 0, highest_bidder TEXT DEFAULT NULL, auction_status TEXT DEFAULT 'waiting', auction_end_time INTEGER DEFAULT 0, paused_time_left INTEGER DEFAULT 0, is_sold INTEGER DEFAULT 0, pitch_position TEXT DEFAULT NULL, sold_time INTEGER DEFAULT 0, bid_count INTEGER DEFAULT 0, sudden_death INTEGER DEFAULT 0, player_id INTEGER DEFAULT NULL)''')
 
@@ -262,7 +262,7 @@ def upgrade_db():
 
         except: pass
 
-    for col in [('club_name', "TEXT DEFAULT 'FC Ultimate'"), ('anthem_url', "TEXT DEFAULT ''"), ('pitch_theme', "TEXT DEFAULT 'classic'")]:
+    for col in [('club_name', "TEXT DEFAULT 'FC Ultimate'"), ('anthem_url', "TEXT DEFAULT ''"), ('pitch_theme', "TEXT DEFAULT 'classic'"), ('has_exited', 'INTEGER DEFAULT 0'), ('exit_requested', 'INTEGER DEFAULT 0')]:
 
         try: cur.execute(f"ALTER TABLE users ADD COLUMN {col[0]} {col[1]}")
 
@@ -287,7 +287,7 @@ def require_auth():
 
         
 
-    room_required_routes = ['auction', 'auction_status', 'place_bid', 'fold', 'react', 'summary', 'api_leaderboard', 'api_history', 'api_teams', 'api_trade_players', 'propose_trade', 'my_trades', 'respond_trade', 'my_team', 'save_squad_state', 'export_my_team', 'admin_dashboard', 'change_pin', 'reset_player', 'make_admin', 'hard_reset_draft', 'delete_user']
+    room_required_routes = ['auction', 'auction_status', 'place_bid', 'fold', 'react', 'summary', 'api_leaderboard', 'api_history', 'api_teams', 'api_trade_players', 'propose_trade', 'my_trades', 'respond_trade', 'my_team', 'save_squad_state', 'export_my_team', 'export_team_backup', 'admin_dashboard', 'change_pin', 'reset_player', 'unassign_player', 'make_admin', 'hard_reset_draft', 'delete_user', 'request_exit', 'cancel_exit_request', 'approve_exit', 'reject_exit', 'rejoin_auction', 'request_rejoin', 'cancel_rejoin_request', 'approve_rejoin', 'reject_rejoin', 'admin_import_team', 'admin_download_all_teams']
 
     
 
@@ -708,12 +708,49 @@ def delete_room(room_id):
 
 
 
+@socketio.on('chat_message')
+def on_chat_message(data):
+    room = data.get('room') or session.get('room_name')
+    if not room: return
+    username = data.get('username', 'Unknown')
+    message = str(data.get('message', '')).strip()[:200]
+    if not message: return
+    conn = None
+    try:
+        master_conn = get_master_connection()
+        room_row = master_conn.execute("SELECT db_file FROM rooms WHERE name=?", (room,)).fetchone()
+        master_conn.close()
+        if room_row:
+            conn = sqlite3.connect(room_row["db_file"], timeout=20.0)
+            conn.execute('pragma journal_mode=wal')
+            conn.execute("CREATE TABLE IF NOT EXISTS chat_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, message TEXT, sent_at INTEGER)")
+            conn.execute("INSERT INTO chat_messages (username, message, sent_at) VALUES (?, ?, ?)", (username, message, int(time.time())))
+            conn.commit()
+            conn.close()
+    except Exception:
+        if conn: conn.close()
+    socketio.emit('chat_message', {'username': username, 'message': message}, to=room)
+
+
 @socketio.on('join')
 def on_join(data=None):
     room = session.get('room_name')
     if room:
         sio_join_room(room)
         emit_auction_update(room)
+        try:
+            master_conn = get_master_connection()
+            room_row = master_conn.execute("SELECT db_file FROM rooms WHERE name=?", (room,)).fetchone()
+            master_conn.close()
+            if room_row:
+                conn = sqlite3.connect(room_row["db_file"], timeout=20.0)
+                conn.row_factory = sqlite3.Row
+                conn.execute("CREATE TABLE IF NOT EXISTS chat_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, message TEXT, sent_at INTEGER)")
+                msgs = conn.execute("SELECT username, message FROM chat_messages ORDER BY sent_at DESC LIMIT 50").fetchall()
+                conn.close()
+                emit('chat_history', {'messages': [dict(m) for m in reversed(msgs)]})
+        except Exception:
+            pass
 
 @socketio.on('check_time_up')
 def on_check_time_up(data=None):
@@ -724,6 +761,24 @@ def on_check_time_up(data=None):
 def emit_auction_update(room):
     state = get_auction_state(room)
     if state:
+        try:
+            conn2 = None
+            if has_request_context() and session.get('room_db'):
+                conn2 = get_connection()
+            elif room:
+                master = get_master_connection()
+                row = master.execute("SELECT db_file FROM rooms WHERE name=?", (room,)).fetchone()
+                master.close()
+                if row:
+                    import sqlite3 as _sq2
+                    conn2 = _sq2.connect(row["db_file"], timeout=20.0)
+                    conn2.row_factory = _sq2.Row
+            if conn2:
+                state["exited_users"]  = [r["username"] for r in conn2.execute("SELECT username FROM users WHERE has_exited=1").fetchall()]
+                state["exit_requests"] = [r["username"] for r in conn2.execute("SELECT username FROM users WHERE exit_requested=1").fetchall()]
+                state["rejoin_requests"] = [r["username"] for r in conn2.execute("SELECT username FROM users WHERE exit_requested=2").fetchall()]
+                conn2.close()
+        except: pass
         socketio.emit('auction_update', state, to=room)
 
 @app.route("/auction")
@@ -762,7 +817,7 @@ def auction():
 
     
 
-    waiting_players_list = cur.execute("SELECT id, name, rating, position FROM players WHERE is_sold=0 AND auction_status='waiting' ORDER BY rating DESC, name ASC").fetchall()
+    waiting_players_list = [dict(p) for p in cur.execute("SELECT id, name, rating, position FROM players WHERE is_sold=0 AND auction_status='waiting' ORDER BY rating DESC, name ASC").fetchall()]
 
     
 
@@ -770,9 +825,15 @@ def auction():
 
     if player: has_folded = bool(cur.execute("SELECT 1 FROM auction_folds WHERE player_id=? AND username=?", (player["id"], session["global_user"])).fetchone())
 
+    username = session.get("global_user")
+    squad_count = cur.execute("SELECT COUNT(*) FROM players WHERE highest_bidder=? AND is_sold=1", (username,)).fetchone()[0] if username else 0
+    user_row2 = cur.execute("SELECT has_exited, exit_requested FROM users WHERE username=?", (username,)).fetchone() if username else None
+    user_has_exited    = bool(user_row2["has_exited"])    if user_row2 else False
+    user_exit_requested= bool(user_row2["exit_requested"])if user_row2 else False
+    exited_users  = [r["username"] for r in cur.execute("SELECT username FROM users WHERE has_exited=1").fetchall()]
+    exit_requests = [r["username"] for r in cur.execute("SELECT username FROM users WHERE exit_requested=1").fetchall()]
     conn.close()
-
-    return render_template("auction.html", player=player, users=users, remaining_players=remaining_players, waiting_players=waiting_players_list, has_folded=has_folded, room_name=session.get("room_name"))
+    return render_template("auction.html", player=player, users=users, remaining_players=remaining_players, waiting_players=waiting_players_list, has_folded=has_folded, room_name=session.get("room_name"), squad_count=squad_count, user_has_exited=user_has_exited, user_exit_requested=user_exit_requested, exited_users=exited_users, exit_requests=exit_requests)
 
 
 
@@ -835,6 +896,9 @@ def start_auction():
     cur.execute("DELETE FROM auction_bidders")
 
     cur.execute("DELETE FROM blind_bids")
+
+    # Auto-fold exited users on new player
+    cur.execute("INSERT OR IGNORE INTO auction_folds (player_id, username) SELECT ?, username FROM users WHERE has_exited=1", (new_player["id"],))
 
     conn.commit(); conn.close(); emit_auction_update(session.get('room_name')); return redirect(url_for("auction"))
 
@@ -912,9 +976,9 @@ def place_bid():
 
     
 
-    # 🔥 SEALED ENVELOPE PLAYERS: Lewandowski, Neymar, Marquinhos, Neuer, Nkunku, Carvajal, Sterling 🔥
+    # 🔥 EXCLUSIVE SEALED ENVELOPE (LEWANDOWSKI ONLY) 🔥
 
-    if ('Lewandowski' in player["name"] or 'Neymar' in player["name"] or 'Marquinhos' in player["name"] or 'Neuer' in player["name"] or 'Nkunku' in player["name"] or 'Carvajal' in player["name"] or 'Sterling' in player["name"]):
+    if 'Lewandowski' in player["name"]:
 
         if bid_amount > cur.execute("SELECT budget FROM users WHERE username=?", (username,)).fetchone()["budget"]: conn.close(); return jsonify({"error": "INSUFFICIENT FUNDS!"})
 
@@ -959,6 +1023,123 @@ def place_bid():
 
 
 
+
+
+@app.route("/request_rejoin", methods=["POST"])
+def request_rejoin():
+    if "user_id" not in session: return jsonify({"error": "Not logged in"})
+    conn = get_connection(); cur = conn.cursor()
+    username = session["global_user"]
+    row = cur.execute("SELECT has_exited FROM users WHERE username=?", (username,)).fetchone()
+    if not row or not row["has_exited"]:
+        conn.close(); return jsonify({"error": "You haven't exited."})
+    cur.execute("UPDATE users SET exit_requested=2 WHERE username=?", (username,))  # 2 = rejoin request
+    conn.commit(); conn.close()
+    emit_auction_update(session.get('room_name'))
+    return jsonify({"success": True})
+
+
+@app.route("/cancel_rejoin_request", methods=["POST"])
+def cancel_rejoin_request():
+    if "user_id" not in session: return jsonify({"error": "Not logged in"})
+    conn = get_connection(); cur = conn.cursor()
+    cur.execute("UPDATE users SET exit_requested=0 WHERE username=?", (session["global_user"],))
+    conn.commit(); conn.close()
+    emit_auction_update(session.get('room_name'))
+    return jsonify({"success": True})
+
+
+@app.route("/approve_rejoin", methods=["POST"])
+def approve_rejoin():
+    if session.get("role") != "admin": return jsonify({"error": "Admins only"})
+    username = (request.json or {}).get("username")
+    if not username: return jsonify({"error": "No username"})
+    conn = get_connection(); cur = conn.cursor()
+    cur.execute("UPDATE users SET has_exited=0, exit_requested=0 WHERE username=?", (username,))
+    # Remove from auction_folds for current live player so they can participate
+    player = cur.execute("SELECT id FROM players WHERE auction_status IN ('live','paused')").fetchone()
+    if player:
+        cur.execute("DELETE FROM auction_folds WHERE player_id=? AND username=?", (player["id"], username))
+    conn.commit(); conn.close()
+    emit_auction_update(session.get('room_name'))
+    return jsonify({"success": True})
+
+
+@app.route("/reject_rejoin", methods=["POST"])
+def reject_rejoin():
+    if session.get("role") != "admin": return jsonify({"error": "Admins only"})
+    username = (request.json or {}).get("username")
+    if not username: return jsonify({"error": "No username"})
+    conn = get_connection(); cur = conn.cursor()
+    cur.execute("UPDATE users SET exit_requested=0 WHERE username=?", (username,))
+    conn.commit(); conn.close()
+    emit_auction_update(session.get('room_name'))
+    return jsonify({"success": True})
+
+@app.route("/request_exit", methods=["POST"])
+def request_exit():
+    if "user_id" not in session: return jsonify({"error": "Not logged in"})
+    if session.get("role") == "admin": return jsonify({"error": "Admin cannot exit the auction."})
+    conn = get_connection(); cur = conn.cursor()
+    username = session["global_user"]
+    row = cur.execute("SELECT has_exited, exit_requested FROM users WHERE username=?", (username,)).fetchone()
+    if row and row["has_exited"]:  conn.close(); return jsonify({"error": "You have already exited."})
+    if row and row["exit_requested"]: conn.close(); return jsonify({"error": "Request already pending admin approval."})
+    cur.execute("UPDATE users SET exit_requested=1 WHERE username=?", (username,))
+    conn.commit(); conn.close()
+    emit_auction_update(session.get('room_name'))
+    return jsonify({"success": True})
+
+
+@app.route("/cancel_exit_request", methods=["POST"])
+def cancel_exit_request():
+    if "user_id" not in session: return jsonify({"error": "Not logged in"})
+    conn = get_connection(); cur = conn.cursor()
+    cur.execute("UPDATE users SET exit_requested=0 WHERE username=?", (session["global_user"],))
+    conn.commit(); conn.close()
+    emit_auction_update(session.get('room_name'))
+    return jsonify({"success": True})
+
+
+@app.route("/approve_exit", methods=["POST"])
+def approve_exit():
+    if session.get("role") != "admin": return jsonify({"error": "Admins only"})
+    username = (request.json or {}).get("username")
+    if not username: return jsonify({"error": "No username"})
+    conn = get_connection(); cur = conn.cursor()
+    cur.execute("UPDATE users SET has_exited=1, exit_requested=0 WHERE username=?", (username,))
+    player = cur.execute("SELECT id FROM players WHERE auction_status IN ('live','paused')").fetchone()
+    if player:
+        try: cur.execute("INSERT OR IGNORE INTO auction_folds (player_id, username) VALUES (?, ?)", (player["id"], username))
+        except: pass
+    conn.commit(); conn.close()
+    emit_auction_update(session.get('room_name'))
+    return jsonify({"success": True})
+
+
+@app.route("/reject_exit", methods=["POST"])
+def reject_exit():
+    if session.get("role") != "admin": return jsonify({"error": "Admins only"})
+    username = (request.json or {}).get("username")
+    if not username: return jsonify({"error": "No username"})
+    conn = get_connection(); cur = conn.cursor()
+    cur.execute("UPDATE users SET exit_requested=0 WHERE username=?", (username,))
+    conn.commit(); conn.close()
+    emit_auction_update(session.get('room_name'))
+    return jsonify({"success": True})
+
+
+@app.route("/rejoin_auction", methods=["POST"])
+def rejoin_auction():
+    if session.get("role") != "admin": return jsonify({"error": "Admins only"})
+    username = (request.json or {}).get("username")
+    if not username: return jsonify({"error": "No username"})
+    conn = get_connection(); cur = conn.cursor()
+    cur.execute("UPDATE users SET has_exited=0, exit_requested=0 WHERE username=?", (username,))
+    conn.commit(); conn.close()
+    emit_auction_update(session.get('room_name'))
+    return jsonify({"success": True})
+
 @app.route("/fold", methods=["GET", "POST"])
 
 def fold():
@@ -975,7 +1156,8 @@ def fold():
 
     if player:
 
-        if player["highest_bidder"] == session["global_user"] and not ('Lewandowski' in player["name"] or 'Neymar' in player["name"] or 'Marquinhos' in player["name"] or 'Neuer' in player["name"] or 'Nkunku' in player["name"] or 'Carvajal' in player["name"] or 'Sterling' in player["name"]):
+        _is_sealed = ('Lewandowski' in player["name"] or 'Neymar' in player["name"] or 'Marquinhos' in player["name"] or 'Neuer' in player["name"] or 'Nkunku' in player["name"] or 'Carvajal' in player["name"] or 'Sterling' in player["name"])
+        if player["highest_bidder"] == session["global_user"] and not _is_sealed:
 
             conn.close(); return jsonify({"error": "You cannot fold while winning!"})
 
@@ -1079,6 +1261,12 @@ def get_auction_state(room=None):
 
         folded_users = [row['username'] for row in folded_users_rows]
 
+        # fold_count must only count active (non-exited) users who folded
+        active_folded = cur.execute(
+            "SELECT COUNT(*) FROM auction_folds af JOIN users u ON af.username=u.username WHERE af.player_id=? AND u.has_exited=0",
+            (player_id,)
+        ).fetchone()[0]
+
 
 
         active_bidders_rows = cur.execute("SELECT username FROM auction_bidders WHERE player_id=?", (player_id,)).fetchall()
@@ -1095,20 +1283,19 @@ def get_auction_state(room=None):
 
         time_left = max(0, active_player["auction_end_time"] - int(time.time()))
 
-        total_users = max(1, cur.execute("SELECT COUNT(*) FROM users").fetchone()[0])
+        total_users = max(1, cur.execute("SELECT COUNT(*) FROM users WHERE has_exited=0").fetchone()[0])
 
-        fold_count = len(folded_users)
+        fold_count = active_folded
 
         active_bidders = len(active_bidders_list)
 
         
 
-        _is_sealed = ('Lewandowski' in active_player["name"] or 'Neymar' in active_player["name"] or 'Marquinhos' in active_player["name"] or 'Neuer' in active_player["name"] or 'Nkunku' in active_player["name"] or 'Carvajal' in active_player["name"] or 'Sterling' in active_player["name"])
-        folds_needed = (total_users - 1) if active_player["highest_bidder"] or _is_sealed else total_users
+        folds_needed = (total_users - 1) if active_player["highest_bidder"] or 'Lewandowski' in active_player["name"] else total_users
 
 
 
-        if time_left <= 0 and active_player["sudden_death"] == 0 and active_bidders > 1 and fold_count < folds_needed and not ('Lewandowski' in active_player["name"] or 'Neymar' in active_player["name"] or 'Marquinhos' in active_player["name"] or 'Neuer' in active_player["name"] or 'Nkunku' in active_player["name"] or 'Carvajal' in active_player["name"] or 'Sterling' in active_player["name"]):
+        if time_left <= 0 and active_player["sudden_death"] == 0 and active_bidders > 1 and fold_count < folds_needed and 'Lewandowski' not in active_player["name"]:
 
             cur.execute("UPDATE players SET sudden_death=1, auction_end_time=? WHERE id=?", (int(time.time()) + 5, player_id))
 
@@ -1124,9 +1311,9 @@ def get_auction_state(room=None):
 
             
 
-            # 🔥 RESOLVE SEALED ENVELOPE BIDS FOR ALL SEALED PLAYERS 🔥
+            # 🔥 RESOLVE SEALED ENVELOPE BIDS HERE FOR LEWANDOWSKI 🔥
 
-            if ('Lewandowski' in active_player["name"] or 'Neymar' in active_player["name"] or 'Marquinhos' in active_player["name"] or 'Neuer' in active_player["name"] or 'Nkunku' in active_player["name"] or 'Carvajal' in active_player["name"] or 'Sterling' in active_player["name"]):
+            if 'Lewandowski' in active_player["name"]:
 
                 top_bid = cur.execute("SELECT username, bid_amount FROM blind_bids WHERE player_id=? ORDER BY bid_amount DESC LIMIT 1", (player_id,)).fetchone()
 
@@ -1152,7 +1339,7 @@ def get_auction_state(room=None):
 
                 
 
-                if sold_to or (('Lewandowski' in active_player["name"] or 'Neymar' in active_player["name"] or 'Marquinhos' in active_player["name"] or 'Neuer' in active_player["name"] or 'Nkunku' in active_player["name"] or 'Carvajal' in active_player["name"] or 'Sterling' in active_player["name"]) and cur.execute("SELECT 1 FROM blind_bids WHERE player_id=?", (player_id,)).fetchone()):
+                if sold_to or ('Lewandowski' in active_player["name"] and cur.execute("SELECT 1 FROM blind_bids WHERE player_id=?", (player_id,)).fetchone()):
 
                     cur.execute("UPDATE users SET budget = budget - ? WHERE username=?", (amount, sold_to))
 
@@ -1177,6 +1364,9 @@ def get_auction_state(room=None):
                         cur.execute("DELETE FROM auction_bidders")
 
                         cur.execute("DELETE FROM blind_bids")
+
+                        # Auto-fold exited users on new player
+                        cur.execute("INSERT OR IGNORE INTO auction_folds (player_id, username) SELECT ?, username FROM users WHERE has_exited=1", (new_player["id"],))
 
                     conn.commit(); conn.close()
 
@@ -1310,9 +1500,9 @@ def summary():
 
         if won_count > tactical_genius["won"]: tactical_genius = {"username": u["username"], "won": won_count}
 
-        teams.append({"username": u["username"], "budget": u["budget"], "squad": squad, "avg_rating": avg_rating, "player_count": won_count, "spent": spent})
+        teams.append({"username": u["username"], "budget": u["budget"], "squad": [dict(p) for p in squad], "avg_rating": avg_rating, "player_count": won_count, "spent": spent})
 
-        if avg_rating > champion["avg_rating"]: champion = {"username": u["username"], "avg_rating": avg_rating, "squad": top_11, "spent": spent, "won": won_count, "budget": u["budget"]}
+        if avg_rating > champion["avg_rating"]: champion = {"username": u["username"], "avg_rating": avg_rating, "squad": [dict(p) for p in top_11], "spent": spent, "won": won_count, "budget": u["budget"]}
 
     teams = sorted(teams, key=lambda x: x["avg_rating"], reverse=True); conn.close()
 
@@ -1526,6 +1716,119 @@ def save_squad_state():
 
 
 
+@app.route("/export_team_backup")
+
+def export_team_backup():
+
+    conn = get_connection(); cur = conn.cursor()
+
+    players = cur.execute("SELECT name, rating, position, current_bid FROM players WHERE highest_bidder=? AND is_sold=1 ORDER BY rating DESC", (session["global_user"],)).fetchall()
+
+    conn.close()
+
+    si = io.StringIO(); cw = csv.writer(si)
+    cw.writerow(["Player Name", "Position", "Rating", "Price Paid (M)"])
+    for p in players:
+        cw.writerow([p["name"], p["position"], p["rating"], p["current_bid"]])
+
+    output = make_response(si.getvalue())
+    output.headers["Content-Disposition"] = f"attachment; filename={session['global_user']}_team.csv"
+    output.headers["Content-type"] = "text/csv"
+    return output
+
+
+
+@app.route("/admin/import_team", methods=["POST"])
+
+def admin_import_team():
+
+    if session.get("role") != "admin": return jsonify({"success": False, "error": "Unauthorized"})
+
+    file = request.files.get("backup_file")
+    username = request.form.get("username", "").strip()
+
+    if not file: return jsonify({"success": False, "error": "No file uploaded"})
+    if not username: return jsonify({"success": False, "error": "No player selected"})
+
+    try:
+        content = file.read().decode("utf-8")
+        reader = csv.DictReader(io.StringIO(content))
+        rows = list(reader)
+    except Exception:
+        return jsonify({"success": False, "error": "Invalid CSV file"})
+
+    conn = get_connection(); cur = conn.cursor()
+
+    user = cur.execute("SELECT id FROM users WHERE username=?", (username,)).fetchone()
+    if not user:
+        conn.close()
+        return jsonify({"success": False, "error": f"User '{username}' not found in this room"})
+
+    imported = []; skipped = []
+
+    for row in rows:
+        name = row.get("Player Name", "").strip()
+        if not name: continue
+        try: price = int(float(row.get("Price Paid (M)") or row.get("Auction Price (M)") or 0))
+        except: price = 0
+
+        existing = cur.execute("SELECT highest_bidder, is_sold FROM players WHERE name=?", (name,)).fetchone()
+        if not existing:
+            skipped.append(f"{name} (not found)")
+            continue
+
+        if existing["is_sold"] == 1 and existing["highest_bidder"] != username:
+            skipped.append(f"{name} (already owned by {existing['highest_bidder']})")
+            continue
+
+        cur.execute("UPDATE players SET highest_bidder=?, is_sold=1, auction_status='done', current_bid=? WHERE name=?",
+                    (username, price, name))
+        imported.append(name)
+
+    total_spent = sum(
+        int(float(row.get("Price Paid (M)") or row.get("Auction Price (M)") or 0))
+        for row in rows if row.get("Player Name", "").strip() in imported
+    )
+    cur.execute("UPDATE users SET budget = 1000 - ? WHERE username=?", (total_spent, username))
+
+    conn.commit(); conn.close()
+    emit_auction_update(session.get('room_name'))
+
+    return jsonify({"success": True, "imported": imported, "skipped": skipped, "username": username})
+
+
+
+@app.route("/admin/download_all_teams")
+
+def admin_download_all_teams():
+
+    import zipfile
+
+    if session.get("role") != "admin": return redirect(url_for("auction"))
+
+    conn = get_connection(); cur = conn.cursor()
+    users = cur.execute("SELECT username, budget FROM users").fetchall()
+
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for u in users:
+            players = cur.execute("SELECT name, position, rating, current_bid FROM players WHERE highest_bidder=? AND is_sold=1 ORDER BY rating DESC", (u["username"],)).fetchall()
+            si = io.StringIO(); cw = csv.writer(si)
+            cw.writerow(["Player Name", "Position", "Rating", "Price Paid (M)"])
+            for p in players:
+                cw.writerow([p["name"], p["position"], p["rating"], p["current_bid"]])
+            zf.writestr(f"{u['username']}_team.csv", si.getvalue())
+
+    conn.close()
+    zip_buffer.seek(0)
+
+    output = make_response(zip_buffer.read())
+    output.headers["Content-Disposition"] = "attachment; filename=all_teams.zip"
+    output.headers["Content-type"] = "application/zip"
+    return output
+
+
+
 @app.route("/export_my_team")
 
 def export_my_team():
@@ -1622,6 +1925,31 @@ def reset_player(player_id):
 
 
 
+@app.route("/unassign_player/<int:player_id>", methods=["POST"])
+
+def unassign_player(player_id):
+
+    if session.get("role") != "admin": return redirect(url_for("auction"))
+
+    conn = get_connection(); cur = conn.cursor()
+
+    player = cur.execute("SELECT * FROM players WHERE id=?", (player_id,)).fetchone()
+
+    if player:
+        if player["is_sold"] == 1 and player["highest_bidder"]:
+            cur.execute("UPDATE users SET budget = budget + ? WHERE username=?", (player["current_bid"], player["highest_bidder"]))
+        cur.execute("UPDATE players SET is_sold=0, auction_status='unsold', current_bid=0, highest_bidder=NULL, bid_count=0, sudden_death=0, auction_end_time=0, paused_time_left=0, sold_time=0 WHERE id=?", (player_id,))
+        cur.execute("DELETE FROM auction_folds WHERE player_id=?", (player_id,))
+        cur.execute("DELETE FROM auction_bidders WHERE player_id=?", (player_id,))
+        cur.execute("DELETE FROM blind_bids WHERE player_id=?", (player_id,))
+        conn.commit()
+
+    conn.close(); return redirect(url_for("admin_dashboard"))
+
+
+
+
+
 @app.route("/make_admin/<int:new_admin_id>", methods=["POST"])
 
 def make_admin(new_admin_id):
@@ -1650,7 +1978,7 @@ def hard_reset_draft():
 
     conn = get_connection(); cur = conn.cursor()
 
-    cur.execute("UPDATE users SET budget=1000, current_formation='4-4-2'")
+    cur.execute("UPDATE users SET budget=1000, current_formation='4-4-2', has_exited=0, exit_requested=0")
 
     cur.execute("UPDATE players SET is_sold=0, auction_status='waiting', current_bid=0, highest_bidder=NULL, bid_count=0, sudden_death=0, auction_end_time=0, paused_time_left=0, sold_time=0, pitch_position=NULL")
 
